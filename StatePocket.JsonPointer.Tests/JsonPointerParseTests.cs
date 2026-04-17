@@ -16,21 +16,21 @@ public sealed class JsonPointerParseTests
         "/foo/bar",
         new[]
         {
-            "foo", "bar",
+            "foo", "bar"
         }
     )]
     [InlineData(
         "/foo/bar~0baz",
         new[]
         {
-            "foo", "bar~baz",
+            "foo", "bar~baz"
         }
     )]
     [InlineData(
         "/foo/bar~1baz",
         new[]
         {
-            "foo", "bar/baz",
+            "foo", "bar/baz"
         }
     )]
     [InlineData(
@@ -41,7 +41,7 @@ public sealed class JsonPointerParseTests
             "~",
             "//",
             "~~",
-            "baz",
+            "baz"
         }
     )]
     public void Parse_ValidPath_ReturnsSegments(string path, string[] expectedSegments)

@@ -45,7 +45,7 @@ internal sealed class SetValueTool(IKvStore kvStore)
         var result = new SetValueResultData
         {
             Namespace = normalizedNamespace,
-            Key = key,
+            Key = key
         };
         return ToolResultFactory.Success(result);
     }

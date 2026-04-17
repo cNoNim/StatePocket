@@ -20,10 +20,10 @@ internal static class ToolResultFactory
             [
                 new TextContentBlock
                 {
-                    Text = structuredContent.GetRawText(),
-                },
+                    Text = structuredContent.GetRawText()
+                }
             ],
-            StructuredContent = structuredContent,
+            StructuredContent = structuredContent
         };
     }
 
@@ -64,7 +64,7 @@ internal static class ToolResultFactory
                 ToolResultJsonContext.Default.SetValueResultData
             ),
             null => throw new ArgumentNullException(nameof(data)),
-            _ => throw new NotSupportedException($"Unsupported tool result type: {typeof(TData).FullName}"),
+            _ => throw new NotSupportedException($"Unsupported tool result type: {typeof(TData).FullName}")
         };
     }
 
@@ -85,7 +85,7 @@ internal static class ToolResultFactory
         {
             < 1 => throw new McpException("limit must be greater than or equal to 1."),
             > MaxResultItems => throw new McpException($"limit must be less than or equal to {MaxResultItems}."),
-            _ => normalizedLimit,
+            _ => normalizedLimit
         };
     }
 }

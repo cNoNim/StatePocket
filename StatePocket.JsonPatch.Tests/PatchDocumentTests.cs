@@ -106,7 +106,7 @@ public sealed class PatchDocumentTests
         PatchDocument patchDocument = new(
             [
                 new PatchOperation(PatchOperationType.Replace, "/meta/version", JsonValue.Create(2)),
-                new PatchOperation(PatchOperationType.Test, "/meta/name", JsonValue.Create("other")),
+                new PatchOperation(PatchOperationType.Test, "/meta/name", JsonValue.Create("other"))
             ]
         );
         Assert.Throws<JsonPatchException>(() => _ = patchDocument.Apply(document));

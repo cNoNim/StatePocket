@@ -71,7 +71,7 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
             {
                 Namespace = normalizedNamespace,
                 Values = pageResult.Values,
-                NextCursor = pageResult.NextCursor,
+                NextCursor = pageResult.NextCursor
             };
             return ToolResultFactory.Success(result);
         }

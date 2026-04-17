@@ -106,7 +106,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
                         ExpiresAt = await reader.IsDBNullAsync(1, cancellationToken)
                                                 .ConfigureAwait(false)
                           ? null
-                          : reader.GetString(1),
+                          : reader.GetString(1)
                     };
                 }
             }
@@ -208,7 +208,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
                                     ExpiresAt = await reader.IsDBNullAsync(2, cancellationToken)
                                                             .ConfigureAwait(false)
                                       ? null
-                                      : reader.GetString(2),
+                                      : reader.GetString(2)
                                 }
                             )
                         );
@@ -431,7 +431,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
                             ExpiresAt = await reader.IsDBNullAsync(2, cancellationToken)
                                                     .ConfigureAwait(false)
                               ? null
-                              : reader.GetString(2),
+                              : reader.GetString(2)
                         };
                     }
                 }
@@ -532,7 +532,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
         SqliteConnectionStringBuilder builder = new()
         {
             DataSource = resolvedOptions.DatabasePath,
-            Mode = SqliteOpenMode.ReadWriteCreate,
+            Mode = SqliteOpenMode.ReadWriteCreate
         };
         if (defaultTimeoutSeconds is not null)
         {
@@ -558,7 +558,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
             return new PageResult<T>
             {
                 Items = items,
-                NextCursor = null,
+                NextCursor = null
             };
         }
         var nextCursor = cursorSelector(items[limit - 1]);
@@ -566,7 +566,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
         return new PageResult<T>
         {
             Items = items,
-            NextCursor = nextCursor,
+            NextCursor = nextCursor
         };
     }
 
@@ -638,7 +638,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
                     ExpiresAt = await reader.IsDBNullAsync(2, cancellationToken)
                                             .ConfigureAwait(false)
                       ? null
-                      : reader.GetString(2),
+                      : reader.GetString(2)
                 };
             }
         }

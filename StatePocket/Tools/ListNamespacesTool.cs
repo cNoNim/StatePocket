@@ -32,7 +32,7 @@ internal sealed class ListNamespacesTool(IKvStore kvStore)
         var result = new ListNamespacesResultData
         {
             Namespaces = page.Items,
-            NextCursor = page.NextCursor,
+            NextCursor = page.NextCursor
         };
         return ToolResultFactory.Success(result);
     }

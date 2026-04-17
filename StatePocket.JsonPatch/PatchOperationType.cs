@@ -7,5 +7,5 @@ internal enum PatchOperationType
     Replace,
     Move,
     Copy,
-    Test,
+    Test
 }

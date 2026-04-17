@@ -28,21 +28,21 @@ internal static class CliApplication
     {
         Option<string?> dbPathOption = new("--db-path")
         {
-            Description = "Path to the SQLite database file.",
+            Description = "Path to the SQLite database file."
         };
         Option<string?> enableToolsOption = new("--enable-tools")
         {
-            Description = "Comma-separated allowlist of tool names.",
+            Description = "Comma-separated allowlist of tool names."
         };
         Option<string?> disableToolsOption = new("--disable-tools")
         {
-            Description = "Comma-separated denylist of tool names.",
+            Description = "Comma-separated denylist of tool names."
         };
         Command mcpCommand = new("mcp", "Run the StatePocket MCP server over stdio.")
         {
             dbPathOption,
             enableToolsOption,
-            disableToolsOption,
+            disableToolsOption
         };
         mcpCommand.SetAction((parseResult, cancellationToken) =>
             {
@@ -191,7 +191,7 @@ internal static class CliApplication
             UnauthorizedAccessException or IOException => $"Failed to access the database path. {exception.Message}",
             _ => exception is SqliteException
               ? $"Failed to open or initialize the SQLite database. {exception.Message}"
-              : $"Failed to start statepocket. {exception.Message}",
+              : $"Failed to start statepocket. {exception.Message}"
         };
     }
 

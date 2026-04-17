@@ -47,7 +47,7 @@ internal sealed class PatchValueTool(IKvStore kvStore)
         var result = new PatchValueResultData
         {
             Namespace = normalizedNamespace,
-            Key = key,
+            Key = key
         };
         return ToolResultFactory.Success(result);
     }

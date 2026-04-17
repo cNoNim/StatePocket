@@ -35,7 +35,7 @@ internal sealed class DeleteValueTool(IKvStore kvStore)
         var result = new DeleteValueResultData
         {
             Namespace = normalizedNamespace,
-            Key = key,
+            Key = key
         };
         return ToolResultFactory.Success(result);
     }

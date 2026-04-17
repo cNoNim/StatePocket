@@ -24,7 +24,7 @@ public sealed partial class JsonPath
                 JsonValueKind.Number => JsonNumber.Parse(left) == JsonNumber.Parse(right),
                 JsonValueKind.Array => ArraysEqual(left, right),
                 JsonValueKind.Object => ObjectsEqual(left, right),
-                _ => false,
+                _ => false
             };
         }
 
@@ -217,7 +217,7 @@ public sealed partial class JsonPath
                                       )
                                   ),
                 _ => BigInteger.Abs(Significand)
-                               .CompareTo(BigInteger.Abs(other.Significand)),
+                               .CompareTo(BigInteger.Abs(other.Significand))
             };
         }
 

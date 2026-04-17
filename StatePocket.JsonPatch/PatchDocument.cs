@@ -77,7 +77,7 @@ public sealed class PatchDocument
             PatchOperationType.Move => ApplyMove(document, operation),
             PatchOperationType.Copy => ApplyCopy(document, operation),
             PatchOperationType.Test => ApplyTest(document, operation),
-            _ => throw new JsonPatchException($"Operation '{operation.Type}' is not supported yet."),
+            _ => throw new JsonPatchException($"Operation '{operation.Type}' is not supported yet.")
         };
     }
 
@@ -192,7 +192,7 @@ public sealed class PatchDocument
             {
                 JsonObject jsonObject => GetObjectChild(jsonObject, segment, parsedPath),
                 JsonArray jsonArray => GetArrayChild(jsonArray, segment, parsedPath),
-                _ => throw new JsonPatchException($"Path '{FormatPath(parsedPath)}' does not exist."),
+                _ => throw new JsonPatchException($"Path '{FormatPath(parsedPath)}' does not exist.")
             };
         }
         return current ?? throw new JsonPatchException($"Path '{FormatPath(parsedPath)}' does not exist.");
@@ -211,7 +211,7 @@ public sealed class PatchDocument
         {
             JsonObject jsonObject when jsonObject.TryGetPropertyValue(segment, out var child) => child,
             JsonArray jsonArray => jsonArray[ParseExistingArrayIndex(jsonArray, segment)],
-            _ => throw new JsonPatchException($"Path '{FormatPath(parsedPath)}' does not exist."),
+            _ => throw new JsonPatchException($"Path '{FormatPath(parsedPath)}' does not exist.")
         };
     }
 
@@ -350,7 +350,7 @@ public sealed class PatchDocument
             "move" => PatchOperationType.Move,
             "copy" => PatchOperationType.Copy,
             "test" => PatchOperationType.Test,
-            _ => throw new JsonPatchException($"Unsupported patch operation '{op}'."),
+            _ => throw new JsonPatchException($"Unsupported patch operation '{op}'.")
         };
     }
 
@@ -363,7 +363,7 @@ public sealed class PatchDocument
                 PatchOperationType.Move or PatchOperationType.Copy => throw new JsonPatchException(
                     $"Patch operation '{type}' must have string property 'from'."
                 ),
-                _ => null,
+                _ => null
             };
         }
         return fields.From;
@@ -377,7 +377,7 @@ public sealed class PatchDocument
             {
                 PatchOperationType.Add or PatchOperationType.Replace or PatchOperationType.Test =>
                     throw new JsonPatchException($"Patch operation '{type}' must have property 'value'."),
-                _ => null,
+                _ => null
             };
         }
         return fields.Value?.DeepClone();

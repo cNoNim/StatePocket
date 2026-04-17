@@ -36,7 +36,7 @@ internal sealed class ListKeysTool(IKvStore kvStore)
         {
             Namespace = normalizedNamespace,
             Keys = page.Items,
-            NextCursor = page.NextCursor,
+            NextCursor = page.NextCursor
         };
         return ToolResultFactory.Success(result);
     }

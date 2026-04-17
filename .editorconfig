@@ -10,8 +10,6 @@ indent_style = space
 indent_size = 4
 max_line_length = 120
 wrap_lines = true
-dotnet_diagnostic.IDE1006.severity = warning
-dotnet_diagnostic.MA0188.severity = warning
 
 formatter_off_tag = @formatter:off
 formatter_on_tag = @formatter: on
@@ -57,7 +55,7 @@ show_autodetect_configure_formatting_tip = false
 special_else_if_treatment = true
 stick_comment = true
 support_vs_event_naming_pattern = true
-trailing_comma_in_multiline_lists = true
+trailing_comma_in_multiline_lists = false
 trailing_comma_in_singleline_lists = false
 treat_case_statement_with_break_as_simple = true
 use_continuous_indent_inside_parens = true
@@ -466,6 +464,8 @@ xml_linebreak_before_elements =
 
 # Dotnet Diagnostics
 dotnet_diagnostic.IDE1006.severity = warning
+dotnet_diagnostic.MA0007.severity = none
+dotnet_diagnostic.MA0188.severity = warning
 
 # Inspection severities
 csharp_preferred_modifier_order = public, private, protected, internal, file, new, static, abstract, virtual, sealed, readonly, override, extern, unsafe, volatile, async, required: warning
@@ -522,7 +522,7 @@ resharper_arrange_object_creation_when_type_not_evident_highlighting = suggestio
 resharper_arrange_redundant_parentheses_highlighting = suggestion
 resharper_arrange_static_member_qualifier_highlighting = suggestion
 resharper_arrange_this_qualifier_highlighting = suggestion
-resharper_arrange_trailing_comma_in_multiline_lists_highlighting = suggestion
+resharper_arrange_trailing_comma_in_multiline_lists_highlighting = hint
 resharper_arrange_trailing_comma_in_singleline_lists_highlighting = hint
 resharper_arrange_type_member_modifiers_highlighting = suggestion
 resharper_arrange_type_modifiers_highlighting = suggestion

@@ -158,11 +158,11 @@ public sealed partial class JsonPath
                 );
                 if (left is QueryOperand
                     {
-                        Query.IsSingular: false,
+                        Query.IsSingular: false
                     }
                  || right is QueryOperand
                     {
-                        Query.IsSingular: false,
+                        Query.IsSingular: false
                     })
                 {
                     throw new JsonPathException($"Invalid JSONPath selector '{selector}'.");
@@ -176,7 +176,7 @@ public sealed partial class JsonPath
             return trimmedContent[0] switch
             {
                 '@' or '$' => new QueryExistenceExpression(ParseFilterQuery(trimmedContent, selector), false),
-                _ => throw new JsonPathException($"Invalid JSONPath selector '{selector}'."),
+                _ => throw new JsonPathException($"Invalid JSONPath selector '{selector}'.")
             };
         }
 
@@ -206,7 +206,7 @@ public sealed partial class JsonPath
     {
         NodeList,
         Json,
-        Nothing,
+        Nothing
     }
 
     private readonly record struct FilterValue(FilterValueKind Kind, JsonElement[] Values)
@@ -239,7 +239,7 @@ public sealed partial class JsonPath
             return FilterValue.FromNodeList(
                 [
                     .. query.Evaluate(root, current)
-                            .Select(static value => value.Value.Clone()),
+                            .Select(static value => value.Value.Clone())
                 ]
             );
         }
@@ -285,7 +285,7 @@ public sealed partial class JsonPath
                     )
                 ),
                 JsonValueKind.Array => FilterValue.FromJson(ToJsonInt32Element(value.GetArrayLength())),
-                _ => FilterValue.Nothing,
+                _ => FilterValue.Nothing
             };
         }
     }
@@ -351,7 +351,7 @@ public sealed partial class JsonPath
     private enum BinaryLogicalOperator
     {
         And,
-        Or,
+        Or
     }
 
     private sealed class BinaryLogicalExpression(
@@ -366,7 +366,7 @@ public sealed partial class JsonPath
             {
                 BinaryLogicalOperator.And => left.Evaluate(root, current) && right.Evaluate(root, current),
                 BinaryLogicalOperator.Or => left.Evaluate(root, current) || right.Evaluate(root, current),
-                _ => throw new InvalidOperationException($"Unsupported logical operator '{operation}'."),
+                _ => throw new InvalidOperationException($"Unsupported logical operator '{operation}'.")
             };
         }
     }
@@ -395,7 +395,7 @@ public sealed partial class JsonPath
                 "<=" => Compare(leftValues, rightValues, static value => value <= 0),
                 ">" => Compare(leftValues, rightValues, static value => value > 0),
                 ">=" => Compare(leftValues, rightValues, static value => value >= 0),
-                _ => throw new InvalidOperationException($"Unsupported operator '{comparisonOperator}'."),
+                _ => throw new InvalidOperationException($"Unsupported operator '{comparisonOperator}'.")
             };
         }
 
@@ -408,7 +408,7 @@ public sealed partial class JsonPath
                 {
                     FilterValueKind.Nothing when right.Kind == FilterValueKind.Nothing => true,
                     FilterValueKind.Nothing => right.IsEmptyNodeList,
-                    _ => left.IsEmptyNodeList,
+                    _ => left.IsEmptyNodeList
                 };
             }
             if (left.Values.Length != right.Values.Length)

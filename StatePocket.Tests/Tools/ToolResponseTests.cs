@@ -330,7 +330,7 @@ public sealed class ToolResponseTests : IDisposable
         SetValueTool setTool = new(_store);
         foreach (var currentNamespace in new[]
                  {
-                     "alpha", "beta", "gamma",
+                     "alpha", "beta", "gamma"
                  })
         {
             await setTool.SetValueCoreAsync(
@@ -615,7 +615,7 @@ public sealed class ToolResponseTests : IDisposable
         SetValueTool setTool = new(_store);
         foreach (var key in new[]
                  {
-                     "alpha", "beta", "gamma",
+                     "alpha", "beta", "gamma"
                  })
         {
             await setTool.SetValueCoreAsync(
@@ -1179,7 +1179,7 @@ public sealed class ToolResponseTests : IDisposable
                 Found = true,
                 PathFound = true,
                 Value = ParseJson("\"value\""),
-                ExpiresAt = "2026-04-14T10:01:00.0000000Z",
+                ExpiresAt = "2026-04-14T10:01:00.0000000Z"
             }
         );
         Assert.True(json.TryGetProperty("path_found", out _));
@@ -1196,7 +1196,7 @@ public sealed class ToolResponseTests : IDisposable
                 Found = true,
                 PathFound = true,
                 Value = ParseJson("\"value\""),
-                ExpiresAt = "2026-04-14T10:01:00.0000000Z",
+                ExpiresAt = "2026-04-14T10:01:00.0000000Z"
             }
         );
         Assert.True(json.TryGetProperty("path_found", out _));
@@ -1214,7 +1214,7 @@ public sealed class ToolResponseTests : IDisposable
     {
         foreach (var invalidNamespace in new[]
                  {
-                     "", "   ",
+                     "", "   "
                  })
         {
             var exception = await Assert.ThrowsAsync<McpException>(() => action(invalidNamespace));
@@ -1228,7 +1228,7 @@ public sealed class ToolResponseTests : IDisposable
             new SqliteConnectionStringBuilder
             {
                 DataSource = _databasePath,
-                Mode = SqliteOpenMode.ReadWriteCreate,
+                Mode = SqliteOpenMode.ReadWriteCreate
             }.ToString()
         );
         await connection.OpenAsync(CancellationToken.None);
@@ -1462,19 +1462,20 @@ internal static class ToolResponseTestExtensions
                 ExpiresAt = entry.TryGetProperty("expires_at", out var expiresAtElement)
                          && expiresAtElement.ValueKind != JsonValueKind.Null
                   ? expiresAtElement.GetString()
-                  : null };
+                  : null
+            };
         }
         return typeof(T) == typeof(GetValuesResultData) ? (T)(object)new GetValuesResultData
             {
                 Namespace = @namespace,
                 Values = values,
-                NextCursor = nextCursor,
+                NextCursor = nextCursor
             } :
             typeof(T) == typeof(QueryValuesResultData) ? (T)(object)new QueryValuesResultData
             {
                 Namespace = @namespace,
                 Values = values,
-                NextCursor = nextCursor,
+                NextCursor = nextCursor
             } : throw new InvalidOperationException($"Unsupported result type '{typeof(T).Name}'.");
     }
 

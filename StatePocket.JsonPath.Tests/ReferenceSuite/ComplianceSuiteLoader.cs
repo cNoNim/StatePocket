@@ -58,7 +58,7 @@ internal static class ComplianceSuiteLoader
         return
         [
             .. property.EnumerateArray()
-                       .Select(static item => item.GetRawText()),
+                       .Select(static item => item.GetRawText())
         ];
     }
 
@@ -74,7 +74,7 @@ internal static class ComplianceSuiteLoader
                        .Select(static resultSet => resultSet.EnumerateArray()
                                                             .Select(static item => item.GetRawText())
                                                             .ToArray()
-                        ),
+                        )
         ];
     }
 
@@ -87,7 +87,7 @@ internal static class ComplianceSuiteLoader
         return
         [
             .. property.EnumerateArray()
-                       .Select(static item => item.GetString()!),
+                       .Select(static item => item.GetString()!)
         ];
     }
 
@@ -103,7 +103,7 @@ internal static class ComplianceSuiteLoader
                        .Select(static resultSet => resultSet.EnumerateArray()
                                                             .Select(static item => item.GetString()!)
                                                             .ToArray()
-                        ),
+                        )
         ];
     }
 

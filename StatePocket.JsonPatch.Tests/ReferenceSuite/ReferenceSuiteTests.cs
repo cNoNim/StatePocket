@@ -68,7 +68,7 @@ public sealed class ReferenceSuiteTests
         foreach (var testCase in ReferenceSuiteLoader.LoadAll()
                                                      .Where(static testCase => testCase is
                                                           {
-                                                              ShouldThrow: false,
+                                                              ShouldThrow: false
                                                           }
                                                       ))
         {
@@ -89,7 +89,7 @@ public sealed class ReferenceSuiteTests
         foreach (var testCase in ReferenceSuiteLoader.LoadAll()
                                                      .Where(static testCase => testCase is
                                                           {
-                                                              ShouldThrow: true,
+                                                              ShouldThrow: true
                                                           }
                                                       ))
         {

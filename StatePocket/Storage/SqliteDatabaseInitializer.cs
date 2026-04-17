@@ -53,7 +53,7 @@ internal sealed class SqliteDatabaseInitializer(ResolvedOptions resolvedOptions)
             new SqliteConnectionStringBuilder
             {
                 DataSource = resolvedOptions.DatabasePath,
-                Mode = SqliteOpenMode.ReadWriteCreate,
+                Mode = SqliteOpenMode.ReadWriteCreate
             }.ToString()
         );
     }

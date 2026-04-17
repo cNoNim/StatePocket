@@ -22,12 +22,12 @@ public sealed class StrictParsingTests
         new TheoryDataRow<string, string>(
             "duplicate value",
             """[{ "op": "add", "path": "/x", "value": 1, "value": 2 }]"""
-        ),
+        )
     ];
     public static TheoryData<string, string> InvalidArrayIndexCases =>
     [
         new TheoryDataRow<string, string>("leading zero", """[{ "op": "add", "path": "/01", "value": "x" }]"""),
-        new TheoryDataRow<string, string>("plus sign", """[{ "op": "add", "path": "/+1", "value": "x" }]"""),
+        new TheoryDataRow<string, string>("plus sign", """[{ "op": "add", "path": "/+1", "value": "x" }]""")
     ];
 
     [Theory]

@@ -118,7 +118,7 @@ public sealed class JsonPointer
                         {
                             '0' => '~',
                             '1' => '/',
-                            _ => throw new JsonPointerException($"Invalid JSON Pointer path '{path}'."),
+                            _ => throw new JsonPointerException($"Invalid JSON Pointer path '{path}'.")
                         }
                     );
                     continue;

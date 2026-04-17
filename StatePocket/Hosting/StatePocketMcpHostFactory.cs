@@ -27,7 +27,7 @@ internal static class StatePocketMcpHostFactory
                                                    Name = "statepocket",
                                                    Version = typeof(StatePocketMcpHostFactory).Assembly.GetName()
                                                                                               .Version?.ToString()
-                                                          ?? "0.0.0",
+                                                          ?? "0.0.0"
                                                };
                                            }
                                        )

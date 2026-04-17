@@ -19,6 +19,6 @@ internal static class ToolNames
         ListNamespaces,
         ListKeys,
         DeleteValue,
-        PatchValue,
+        PatchValue
     ];
 }

@@ -13,7 +13,7 @@ public sealed partial class JsonPath
     {
         var currentValues = new List<PathValue>
         {
-            new(startValue, startPath),
+            new(startValue, startPath)
         };
         foreach (var segment in segments)
         {

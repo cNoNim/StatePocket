@@ -88,7 +88,7 @@ public sealed partial class JsonPath
                 ),
                 '.' => ParseDotSegment(selector, index, segments),
                 '[' => ParseBracketSegment(selector, index, segments),
-                _ => throw new JsonPathException($"Invalid JSONPath selector '{selector}'."),
+                _ => throw new JsonPathException($"Invalid JSONPath selector '{selector}'.")
             };
         }
         return [.. segments];
@@ -189,7 +189,7 @@ public sealed partial class JsonPath
             '*' when selectorPart.Length == 1 => new WildcardSegment(),
             '"' or '\'' => ParseQuotedNameSegment(selectorPart, selector),
             _ when selectorPart.Contains(':', StringComparison.Ordinal) => ParseSliceSegment(selectorPart, selector),
-            _ => ParseIndexSegment(selectorPart, selector),
+            _ => ParseIndexSegment(selectorPart, selector)
         };
     }
 
@@ -211,7 +211,7 @@ public sealed partial class JsonPath
         return normalizedSelectorPart[0] switch
         {
             '$' or '@' => new PathQuery(normalizedSelectorPart[0], ParseFilterQuerySegments(normalizedSelectorPart)),
-            _ => throw new JsonPathException($"Invalid JSONPath selector '{selector}'."),
+            _ => throw new JsonPathException($"Invalid JSONPath selector '{selector}'.")
         };
     }
 
@@ -297,7 +297,7 @@ public sealed partial class JsonPath
             ),
             _ when TryParseFunctionOperand(content, selector, out var operand) => operand,
             '-' or >= '0' and <= '9' => new LiteralOperand(ParseJsonLiteral(content, selector)),
-            _ => throw new JsonPathException($"Invalid JSONPath selector '{selector}'."),
+            _ => throw new JsonPathException($"Invalid JSONPath selector '{selector}'.")
         };
     }
 
@@ -325,7 +325,7 @@ public sealed partial class JsonPath
             "count" => ParseCountOperand(arguments, selector),
             "length" => ParseLengthOperand(arguments, selector),
             "value" => ParseValueOperand(arguments, selector),
-            _ => throw new JsonPathException($"Invalid JSONPath selector '{selector}'."),
+            _ => throw new JsonPathException($"Invalid JSONPath selector '{selector}'.")
         };
         return true;
     }
@@ -347,7 +347,7 @@ public sealed partial class JsonPath
         var argument = ParseFilterOperand(TrimWhitespace(arguments[0]), selector);
         return argument is QueryOperand
         {
-            Query.IsSingular: false,
+            Query.IsSingular: false
         }
           ? throw new JsonPathException($"Invalid JSONPath selector '{selector}'.")
           : new LengthOperand(argument);
@@ -384,7 +384,7 @@ public sealed partial class JsonPath
         {
             "match" => ParseRegexFunctionExpression(arguments, selector, true),
             "search" => ParseRegexFunctionExpression(arguments, selector, false),
-            _ => null,
+            _ => null
         };
         return expression is not null;
     }
@@ -676,7 +676,7 @@ public sealed partial class JsonPath
             'r' => "\r",
             't' => "\t",
             'u' => ParseUnicodeEscape(content, ref index, selector),
-            _ => throw new JsonPathException($"Invalid JSONPath selector '{selector}'."),
+            _ => throw new JsonPathException($"Invalid JSONPath selector '{selector}'.")
         };
     }
 
@@ -841,7 +841,7 @@ public sealed partial class JsonPath
             true => normalized,
             false when normalized < 0 => -1,
             false when normalized >= length => length - 1,
-            false => normalized,
+            false => normalized
         };
     }
 
@@ -880,7 +880,7 @@ public sealed partial class JsonPath
                         '\n' => "\\n",
                         '\r' => "\\r",
                         '\t' => "\\t",
-                        _ => $@"\u{((int)character).ToString("x4", CultureInfo.InvariantCulture)}",
+                        _ => $@"\u{((int)character).ToString("x4", CultureInfo.InvariantCulture)}"
                     }
                 );
                 continue;
@@ -890,7 +890,7 @@ public sealed partial class JsonPath
                 {
                     '\\' => "\\\\",
                     '\'' => "\\'",
-                    _ => character.ToString(),
+                    _ => character.ToString()
                 }
             );
         }
@@ -900,12 +900,12 @@ public sealed partial class JsonPath
     private static bool TryGetSingularValue(FilterValue value, out JsonElement result)
     {
         if (value is {
-                         Kind: FilterValueKind.Json,
+                         Kind: FilterValueKind.Json
                      }
                    or
                      {
                          Kind: FilterValueKind.NodeList,
-                         Values.Length: 1,
+                         Values.Length: 1
                      })
         {
             result = value.Values[0];
@@ -933,7 +933,7 @@ public sealed partial class JsonPath
     {
         if (operand is LiteralOperand
             {
-                Value.ValueKind: JsonValueKind.String,
+                Value.ValueKind: JsonValueKind.String
             } literalOperand
          && literalOperand.Value.GetString() is
                 {} stringValue)

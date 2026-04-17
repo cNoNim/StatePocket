@@ -127,7 +127,7 @@ public sealed class SqliteKvStoreTests : IDisposable
     {
         foreach (var key in new[]
                  {
-                     "alpha", "beta", "gamma",
+                     "alpha", "beta", "gamma"
                  })
         {
             await _store.SetValueAsync(
@@ -198,7 +198,7 @@ public sealed class SqliteKvStoreTests : IDisposable
     {
         foreach (var currentNamespace in new[]
                  {
-                     "alpha", "beta", "gamma",
+                     "alpha", "beta", "gamma"
                  })
         {
             await _store.SetValueAsync(
@@ -316,7 +316,7 @@ public sealed class SqliteKvStoreTests : IDisposable
     {
         foreach (var key in new[]
                  {
-                     "alpha", "beta", "gamma",
+                     "alpha", "beta", "gamma"
                  })
         {
             await _store.SetValueAsync(
@@ -775,7 +775,7 @@ public sealed class SqliteKvStoreTests : IDisposable
             new SqliteConnectionStringBuilder
             {
                 DataSource = _databasePath,
-                Mode = SqliteOpenMode.ReadWriteCreate,
+                Mode = SqliteOpenMode.ReadWriteCreate
             }.ToString()
         );
         await connection.OpenAsync(CancellationToken.None);
