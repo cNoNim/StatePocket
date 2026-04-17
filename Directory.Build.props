@@ -11,6 +11,9 @@
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <VersionPrefix>0.1.0</VersionPrefix>
         <Authors>Oleg Ageev</Authors>
+        <RepositoryUrl>https://github.com/cNoNim/StatePocket</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/cNoNim/StatePocket</PackageProjectUrl>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <IsPackable>false</IsPackable>
     </PropertyGroup>
