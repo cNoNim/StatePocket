@@ -26,7 +26,7 @@ internal sealed class GetValuesTool(IKvStore kvStore)
     )
     {
         ArgumentNullException.ThrowIfNull(keys);
-        foreach (string? key in keys)
+        foreach (var key in keys)
         {
             if (key is null)
             {

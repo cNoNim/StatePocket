@@ -110,8 +110,7 @@ public sealed class ToolResponseTests : IDisposable
     {
         await using var lockHandle = await AcquireWriteLockAsync();
         SetValueTool tool = new(_store);
-        var exception = await Assert.ThrowsAsync<McpException>(() =>
-            tool.SetValueAsync(
+        var exception = await Assert.ThrowsAsync<McpException>(() => tool.SetValueAsync(
                 "smoke.test",
                 ParseJson("\"ok\""),
                 null,
@@ -497,7 +496,12 @@ public sealed class ToolResponseTests : IDisposable
     {
         GetValuesTool getValuesTool = new(_store);
         var exception = await Assert.ThrowsAsync<McpException>(() =>
-            getValuesTool.GetValuesAsync(["one", null!], "codex", null, CancellationToken.None)
+            getValuesTool.GetValuesAsync(
+                ["one", null!],
+                "codex",
+                null,
+                CancellationToken.None
+            )
         );
         Assert.Equal("keys must not contain null values.", exception.Message);
     }
@@ -1458,8 +1462,7 @@ internal static class ToolResponseTestExtensions
                 ExpiresAt = entry.TryGetProperty("expires_at", out var expiresAtElement)
                          && expiresAtElement.ValueKind != JsonValueKind.Null
                   ? expiresAtElement.GetString()
-                  : null,
-            };
+                  : null };
         }
         return typeof(T) == typeof(GetValuesResultData) ? (T)(object)new GetValuesResultData
             {

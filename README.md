@@ -4,6 +4,28 @@
 
 It is designed for agents and skills that need durable local state close at hand: save structured JSON, read it back later, query it, patch it, and keep it in a single file instead of scattering state across prompts or temporary files.
 
+## Install
+
+Install `StatePocket` as a global .NET tool:
+
+```bash
+dotnet tool install --global StatePocket
+```
+
+The installed command is:
+
+```text
+statepocket
+```
+
+## Update
+
+Update an existing global installation:
+
+```bash
+dotnet tool update --global StatePocket
+```
+
 ## What It Does
 
 - Stores JSON values under string keys

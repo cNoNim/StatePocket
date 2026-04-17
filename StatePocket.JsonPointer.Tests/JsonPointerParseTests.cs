@@ -41,7 +41,8 @@ public sealed class JsonPointerParseTests
             "~",
             "//",
             "~~",
-            "baz" }
+            "baz",
+        }
     )]
     public void Parse_ValidPath_ReturnsSegments(string path, string[] expectedSegments)
     {
