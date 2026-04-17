@@ -1,0 +1,5 @@
+[*]
+file_header_template = unset
+configure_await_analysis_mode = ui
+resharper_member_can_be_file_local_highlighting = none
+dotnet_diagnostic.CA1707.severity = none

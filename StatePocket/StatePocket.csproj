@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <AssemblyName>statepocket</AssemblyName>
+        <RootNamespace>StatePocket</RootNamespace>
+        <UseAppHost>true</UseAppHost>
+        <IsPackable>true</IsPackable>
+        <PackAsTool>true</PackAsTool>
+        <RuntimeIdentifiers>osx-x64;osx-arm64;linux-x64;linux-arm64;win-x64;win-arm64</RuntimeIdentifiers>
+        <ToolPackageRuntimeIdentifiers>osx-x64;osx-arm64;linux-x64;linux-arm64;win-x64;win-arm64</ToolPackageRuntimeIdentifiers>
+        <PublishTrimmed>true</PublishTrimmed>
+        <PackageId>StatePocket</PackageId>
+        <ToolCommandName>statepocket</ToolCommandName>
+        <Title>StatePocket</Title>
+        <Description>Durable local state for agents and tools, with an MCP server backed by SQLite.</Description>
+        <PackageTags>mcp;model-context-protocol;agent;sqlite;json;kv-store;tool</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\README.md" Pack="true" PackagePath="\" Link="README.md" />
+        <ProjectReference Include="..\StatePocket.JsonPath\StatePocket.JsonPath.csproj" />
+        <ProjectReference Include="..\StatePocket.JsonPatch\StatePocket.JsonPatch.csproj" />
+        <ProjectReference Include="..\StatePocket.JsonPointer\StatePocket.JsonPointer.csproj" />
+        <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.Data.Sqlite"/>
+        <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables"/>
+        <PackageReference Include="Microsoft.Extensions.Hosting"/>
+        <PackageReference Include="Microsoft.Extensions.Logging.Console"/>
+        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions"/>
+        <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="ModelContextProtocol"/>
+        <PackageReference Include="Serilog"/>
+        <PackageReference Include="Serilog.Extensions.Logging"/>
+        <PackageReference Include="Serilog.Formatting.Compact"/>
+        <PackageReference Include="Serilog.Sinks.File"/>
+        <PackageReference Include="System.CommandLine"/>
+    </ItemGroup>
+</Project>

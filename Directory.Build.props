@@ -1,0 +1,17 @@
+<Project>
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <EnableNETAnalyzers>true</EnableNETAnalyzers>
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+        <AnalysisLevel>latest</AnalysisLevel>
+        <AnalysisMode>Recommended</AnalysisMode>
+        <AnalysisModeSecurity>All</AnalysisModeSecurity>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <VersionPrefix>0.1.0</VersionPrefix>
+        <Authors>Oleg Ageev</Authors>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+</Project>

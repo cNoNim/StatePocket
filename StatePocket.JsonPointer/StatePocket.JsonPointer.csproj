@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>StatePocket.JsonPointer</AssemblyName>
+        <RootNamespace>StatePocket.JsonPointer</RootNamespace>
+    </PropertyGroup>
+</Project>
