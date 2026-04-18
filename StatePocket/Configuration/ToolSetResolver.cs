@@ -13,6 +13,16 @@ internal static class ToolSetResolver
                 "Database path is required. Provide --db-path or STATEPOCKET_MCP_DB_PATH."
             );
         }
+        return new ResolvedOptions(databasePath.Trim(), ResolveEnabledTools(commandLineOptions, environmentOptions));
+    }
+
+    private static IReadOnlyCollection<string> ResolveEnabledTools(
+        CommandLineOptions commandLineOptions,
+        EnvironmentOptions environmentOptions
+    )
+    {
+        ArgumentNullException.ThrowIfNull(commandLineOptions);
+        ArgumentNullException.ThrowIfNull(environmentOptions);
         HashSet<string> enabledTools = new(ToolNames.All, StringComparer.Ordinal);
         var allowlist = ParseToolList(
             FirstNonEmpty(commandLineOptions.EnableTools, environmentOptions.EnableTools),
@@ -32,7 +42,7 @@ internal static class ToolSetResolver
         {
             enabledTools.ExceptWith(denylist);
         }
-        return new ResolvedOptions(databasePath.Trim(), enabledTools);
+        return [.. enabledTools.Order(StringComparer.Ordinal)];
     }
 
     private static string? FirstNonEmpty(string? primary, string? fallback)

@@ -14,7 +14,9 @@ namespace StatePocket.Tools;
 
 internal sealed class QueryValuesTool(IKvStore kvStore)
 {
-    [McpServerTool(Name = "query_values", ReadOnly = true)]
+    public const string ToolName = "query_values";
+
+    [McpServerTool(Name = ToolName, ReadOnly = true)]
     [Description(
         "Finds values in the selected namespace by key pattern and optional JSONPath filter, with optional equality and JSON Pointer projection. Pagination uses an opaque scan cursor over keys in ascending order."
     )]

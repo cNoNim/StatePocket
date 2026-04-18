@@ -8,7 +8,9 @@ namespace StatePocket.Tools;
 
 internal sealed class ListNamespacesTool(IKvStore kvStore)
 {
-    [McpServerTool(Name = "list_namespaces", ReadOnly = true)]
+    public const string ToolName = "list_namespaces";
+
+    [McpServerTool(Name = ToolName, ReadOnly = true)]
     [Description("Lists namespaces, optionally filtered by a wildcard pattern.")]
     internal async Task<CallToolResult> ListNamespacesAsync(
         [Description("Optional wildcard namespace pattern, for example 'team:*'.")] string? pattern = null,

@@ -10,7 +10,9 @@ namespace StatePocket.Tools;
 
 internal sealed class SetValueTool(IKvStore kvStore)
 {
-    [McpServerTool(Name = "set_value")]
+    public const string ToolName = "set_value";
+
+    [McpServerTool(Name = ToolName)]
     [Description(
         "Stores a JSON value under a key in the selected namespace, creating the key or replacing its current value."
     )]

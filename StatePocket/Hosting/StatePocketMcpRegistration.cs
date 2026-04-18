@@ -1,0 +1,64 @@
+using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.Protocol;
+
+namespace StatePocket.Hosting;
+
+internal static class StatePocketMcpRegistration
+{
+    private static readonly Dictionary<string, StatePocketMcpToolRegistration> ToolRegistrations =
+        StatePocketMcpTools.All.ToDictionary(static tool => tool.Name, static tool => tool, StringComparer.Ordinal);
+
+    public static StatePocketMcpToolRegistration? FindTool(string toolName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(toolName);
+        return ToolRegistrations.GetValueOrDefault(toolName);
+    }
+
+    public static IMcpServerBuilder AddServer(IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        return services.AddMcpServer(static options =>
+            {
+                options.ServerInfo = new Implementation
+                {
+                    Name = nameof(StatePocket),
+                    Version = typeof(StatePocketMcpHostFactory).Assembly.GetName()
+                                                               .Version?.ToString()
+                           ?? "0.0.0"
+                };
+            }
+        );
+    }
+
+    public static void AddToolServices(IServiceCollection services, IReadOnlyCollection<string> enabledTools)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(enabledTools);
+        foreach (var tool in GetEnabledTools(enabledTools))
+        {
+            tool.AddServices(services);
+        }
+    }
+
+    public static void AddEnabledTools(IMcpServerBuilder mcpServerBuilder, IReadOnlyCollection<string> enabledTools)
+    {
+        ArgumentNullException.ThrowIfNull(mcpServerBuilder);
+        ArgumentNullException.ThrowIfNull(enabledTools);
+        foreach (var tool in GetEnabledTools(enabledTools))
+        {
+            tool.AddTool(mcpServerBuilder);
+        }
+    }
+
+    private static IEnumerable<StatePocketMcpToolRegistration> GetEnabledTools(IReadOnlyCollection<string> enabledTools)
+    {
+        foreach (var toolName in enabledTools.OrderBy(static tool => tool, StringComparer.Ordinal))
+        {
+            if (FindTool(toolName) is
+                {} tool)
+            {
+                yield return tool;
+            }
+        }
+    }
+}

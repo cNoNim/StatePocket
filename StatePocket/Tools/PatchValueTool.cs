@@ -11,7 +11,9 @@ namespace StatePocket.Tools;
 
 internal sealed class PatchValueTool(IKvStore kvStore)
 {
-    [McpServerTool(Name = "patch_value")]
+    public const string ToolName = "patch_value";
+
+    [McpServerTool(Name = ToolName)]
     [Description("Applies an RFC 6902 JSON Patch document to an existing value in the selected namespace.")]
     internal async Task<CallToolResult> PatchValueAsync(
         [Description("Key to patch.")] string key,

@@ -9,7 +9,9 @@ namespace StatePocket.Tools;
 
 internal sealed class DeleteValueTool(IKvStore kvStore)
 {
-    [McpServerTool(Name = "delete_value")]
+    public const string ToolName = "delete_value";
+
+    [McpServerTool(Name = ToolName)]
     [Description("Deletes a key from the selected namespace.")]
     internal async Task<CallToolResult> DeleteValueAsync(
         [Description("Key to delete.")] string key,

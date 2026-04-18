@@ -13,9 +13,4 @@ internal sealed class ResolvedOptions
 
     public string DatabasePath { get; }
     public IReadOnlyCollection<string> EnabledTools { get; }
-
-    public bool IsToolEnabled(string toolName)
-    {
-        return EnabledTools.Contains(toolName, StringComparer.Ordinal);
-    }
 }

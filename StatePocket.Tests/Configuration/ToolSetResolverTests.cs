@@ -1,4 +1,5 @@
 using StatePocket.Configuration;
+using StatePocket.Tools;
 
 namespace StatePocket.Tests.Configuration;
 
@@ -7,11 +8,11 @@ public sealed class ToolSetResolverTests
     [Fact]
     public void Resolve_UsesCliValuesOverEnvironment()
     {
-        CommandLineOptions commandLine = new("/tmp/cli.db", ToolNames.GetValue, null);
-        EnvironmentOptions environment = new("/tmp/env.db", ToolNames.SetValue, ToolNames.ListKeys);
+        CommandLineOptions commandLine = new("/tmp/cli.db", GetValueTool.ToolName, null);
+        EnvironmentOptions environment = new("/tmp/env.db", SetValueTool.ToolName, ListKeysTool.ToolName);
         var resolved = ToolSetResolver.Resolve(commandLine, environment);
         Assert.Equal("/tmp/cli.db", resolved.DatabasePath);
-        Assert.Equal([ToolNames.GetValue], resolved.EnabledTools);
+        Assert.Equal([GetValueTool.ToolName], resolved.EnabledTools);
     }
 
     [Fact]
@@ -19,11 +20,11 @@ public sealed class ToolSetResolverTests
     {
         CommandLineOptions commandLine = new(
             "/tmp/statepocket.db",
-            $"{ToolNames.SetValue},{ToolNames.GetValue}",
-            ToolNames.GetValue
+            $"{SetValueTool.ToolName},{GetValueTool.ToolName}",
+            GetValueTool.ToolName
         );
         var resolved = ToolSetResolver.Resolve(commandLine, new EnvironmentOptions(null, null, null));
-        Assert.Equal([ToolNames.SetValue], resolved.EnabledTools);
+        Assert.Equal([SetValueTool.ToolName], resolved.EnabledTools);
     }
 
     [Fact]

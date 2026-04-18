@@ -11,7 +11,9 @@ namespace StatePocket.Tools;
 
 internal sealed class GetValuesTool(IKvStore kvStore)
 {
-    [McpServerTool(Name = "get_values", ReadOnly = true)]
+    public const string ToolName = "get_values";
+
+    [McpServerTool(Name = ToolName, ReadOnly = true)]
     [Description(
         "Retrieves multiple values by key from the selected namespace, with optional JSON Pointer projection."
     )]
