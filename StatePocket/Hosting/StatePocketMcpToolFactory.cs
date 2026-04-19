@@ -4,7 +4,7 @@ using System.Text.Json.Nodes;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
-using StatePocket.JsonPatch;
+using StatePocket.Json.Patch;
 using StatePocket.Tools;
 
 namespace StatePocket.Hosting;
@@ -119,15 +119,19 @@ internal static class StatePocketMcpToolFactory
         return new JsonObject
         {
             ["type"] = JsonValue.Create("object"),
-            ["properties"] = CreatePatchOperationProperties(operation, requiresValue, requiresFrom),
+            ["properties"] = CreateJsonPatchOperationProperties(operation, requiresValue, requiresFrom),
             ["required"] = CreateRequiredProperties(requiresValue, requiresFrom)
         };
     }
 
-    private static JsonObject CreatePatchOperationProperties(string operation, bool requiresValue, bool requiresFrom)
+    private static JsonObject CreateJsonPatchOperationProperties(
+        string operation,
+        bool requiresValue,
+        bool requiresFrom
+    )
     {
-        var opPropertyName = ToCamelCase(nameof(PatchOperation.Op));
-        var pathPropertyName = ToCamelCase(nameof(PatchOperation.Path));
+        var opPropertyName = ToCamelCase(nameof(JsonPatchOperation.Op));
+        var pathPropertyName = ToCamelCase(nameof(JsonPatchOperation.Path));
         var valuePropertyName = ToCamelCase(nameof(ValueOperation.Value));
         var fromPropertyName = ToCamelCase(nameof(FromOperation.From));
         JsonObject properties = new()
@@ -161,18 +165,18 @@ internal static class StatePocketMcpToolFactory
         return (requiresValue, requiresFrom) switch
         {
             (true, false) => new JsonArray(
-                JsonValue.Create(ToCamelCase(nameof(PatchOperation.Op))),
-                JsonValue.Create(ToCamelCase(nameof(PatchOperation.Path))),
+                JsonValue.Create(ToCamelCase(nameof(JsonPatchOperation.Op))),
+                JsonValue.Create(ToCamelCase(nameof(JsonPatchOperation.Path))),
                 JsonValue.Create(ToCamelCase(nameof(ValueOperation.Value)))
             ),
             (false, true) => new JsonArray(
-                JsonValue.Create(ToCamelCase(nameof(PatchOperation.Op))),
-                JsonValue.Create(ToCamelCase(nameof(PatchOperation.Path))),
+                JsonValue.Create(ToCamelCase(nameof(JsonPatchOperation.Op))),
+                JsonValue.Create(ToCamelCase(nameof(JsonPatchOperation.Path))),
                 JsonValue.Create(ToCamelCase(nameof(FromOperation.From)))
             ),
             _ => new JsonArray(
-                JsonValue.Create(ToCamelCase(nameof(PatchOperation.Op))),
-                JsonValue.Create(ToCamelCase(nameof(PatchOperation.Path)))
+                JsonValue.Create(ToCamelCase(nameof(JsonPatchOperation.Op))),
+                JsonValue.Create(ToCamelCase(nameof(JsonPatchOperation.Path)))
             )
         };
     }
@@ -300,7 +304,7 @@ internal static class StatePocketMcpToolFactory
     private static Task<CallToolResult> PatchValueAsync(
         PatchValueTool tool,
         [Description("Key to patch.")] string key,
-        [Description("JSON Patch document to apply.")] PatchDocument patch,
+        [Description("JSON Patch document to apply.")] JsonPatch patch,
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
         CancellationToken cancellationToken = default
     )

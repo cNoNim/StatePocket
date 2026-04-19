@@ -4,11 +4,9 @@ using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
+using StatePocket.Json.Path;
+using StatePocket.Json.Pointer;
 using StatePocket.Storage;
-using PathQuery = StatePocket.JsonPath.JsonPath;
-using Pointer = StatePocket.JsonPointer.JsonPointer;
-using JsonPointerException = StatePocket.JsonPointer.JsonPointerException;
-using JsonPathException = StatePocket.JsonPath.JsonPathException;
 
 namespace StatePocket.Tools;
 
@@ -83,11 +81,11 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         }
     }
 
-    private static (PathQuery? Query, Pointer? Pointer) ParseQueryAndPath(string? query, string? path)
+    private static (JsonPath? Query, JsonPointer? Pointer) ParseQueryAndPath(string? query, string? path)
     {
         try
         {
-            return (query is null ? null : new PathQuery(query), path is null ? null : new Pointer(path));
+            return (query is null ? null : new JsonPath(query), path is null ? null : new JsonPointer(path));
         }
         catch (ArgumentException exception)
         {
@@ -105,7 +103,7 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
 
     private static bool MatchesQuery(
         JsonElement document,
-        PathQuery? query,
+        JsonPath? query,
         bool hasEqualsArgument,
         JsonElement? equals
     )
@@ -126,7 +124,7 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
 
     private static bool JsonEquals(JsonElement left, JsonElement right)
     {
-        return PathQuery.DeepEquals(left, right);
+        return JsonPath.DeepEquals(left, right);
     }
 
     private async Task<QueryPageResult> LoadMatchingValuesAsync(
@@ -134,10 +132,10 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         string? pattern,
         string? cursor,
         int limit,
-        PathQuery? jsonPath,
+        JsonPath? jsonPath,
         bool hasEqualsArgument,
         JsonElement? equals,
-        Pointer? pointer,
+        JsonPointer? pointer,
         CancellationToken cancellationToken
     )
     {

@@ -6,8 +6,8 @@ using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using StatePocket.Configuration;
 using StatePocket.Contracts;
-using StatePocket.JsonPatch;
-using StatePocket.JsonPointer;
+using StatePocket.Json.Patch;
+using StatePocket.Json.Pointer;
 using StatePocket.Storage;
 using StatePocket.Tools;
 
@@ -938,7 +938,8 @@ public sealed class ToolResponseTests : IDisposable
     [Fact]
     public void PatchValueCore_ThrowsForMalformedPointerBeforeToolExecution()
     {
-        Assert.Throws<JsonPointerException>(static () => Patch(PatchOperation.Replace("name", ParseNode("\"new\""))));
+        Assert.Throws<JsonPointerException>(static () => Patch(JsonPatchOperation.Replace("name", ParseNode("\"new\"")))
+        );
     }
 
     [Fact]
@@ -1025,7 +1026,7 @@ public sealed class ToolResponseTests : IDisposable
     public void PatchValue_JsonContractRequiresFromForMoveAndCopy()
     {
         var exception = Assert.Throws<JsonException>(static () =>
-            JsonSerializer.Deserialize<PatchDocument>("""[{ "op": "copy", "path": "/nameCopy" }]""")
+            JsonSerializer.Deserialize<JsonPatch>("""[{ "op": "copy", "path": "/nameCopy" }]""")
         );
         Assert.Contains("from", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -1245,27 +1246,27 @@ public sealed class ToolResponseTests : IDisposable
 
     private static ReplaceOperation Replace(string path, string valueJson)
     {
-        return PatchOperation.Replace(path, ParseNode(valueJson));
+        return JsonPatchOperation.Replace(path, ParseNode(valueJson));
     }
 
     private static TestOperation Test(string path, string valueJson)
     {
-        return PatchOperation.Test(path, ParseNode(valueJson));
+        return JsonPatchOperation.Test(path, ParseNode(valueJson));
     }
 
     private static CopyOperation Copy(string from, string path)
     {
-        return PatchOperation.Copy(from, path);
+        return JsonPatchOperation.Copy(from, path);
     }
 
     private static MoveOperation Move(string from, string path)
     {
-        return PatchOperation.Move(from, path);
+        return JsonPatchOperation.Move(from, path);
     }
 
-    private static PatchDocument Patch(params PatchOperation[] operations)
+    private static JsonPatch Patch(params JsonPatchOperation[] operations)
     {
-        return new PatchDocument(operations);
+        return new JsonPatch(operations);
     }
 
     private static JsonNode? ParseNode(string json)
@@ -1407,7 +1408,7 @@ internal static class ToolResponseTestExtensions
     public static async Task<PatchValueResultData> PatchValueCoreAsync(
         this PatchValueTool tool,
         string key,
-        PatchDocument patch,
+        JsonPatch patch,
         string? @namespace = null,
         CancellationToken cancellationToken = default
     )

@@ -4,7 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
 using StatePocket.Configuration;
-using StatePocket.JsonPatch;
+using StatePocket.Json.Patch;
 
 namespace StatePocket.Storage;
 
@@ -317,7 +317,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
     public Task<bool> PatchValueAsync(
         string? @namespace,
         string key,
-        PatchDocument patch,
+        JsonPatch patch,
         CancellationToken cancellationToken
     )
     {
@@ -647,7 +647,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
     private async Task<bool> ExecutePatchValueCoreAsync(
         string @namespace,
         string key,
-        PatchDocument patchDocument,
+        JsonPatch patchDocument,
         string updatedAt,
         string now,
         CancellationToken cancellationToken

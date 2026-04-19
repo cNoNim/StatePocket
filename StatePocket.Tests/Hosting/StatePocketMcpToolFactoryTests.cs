@@ -2,7 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Server;
 using StatePocket.Hosting;
-using StatePocket.JsonPatch;
+using StatePocket.Json.Patch;
 using StatePocket.Storage;
 using StatePocket.Tools;
 
@@ -213,7 +213,7 @@ public sealed class StatePocketMcpToolFactoryTests
         public Task<bool> PatchValueAsync(
             string? @namespace,
             string key,
-            PatchDocument patch,
+            JsonPatch patch,
             CancellationToken cancellationToken
         )
         {

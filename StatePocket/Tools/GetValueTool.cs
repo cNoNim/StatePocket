@@ -3,9 +3,8 @@ using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
+using StatePocket.Json.Pointer;
 using StatePocket.Storage;
-using Pointer = StatePocket.JsonPointer.JsonPointer;
-using JsonPointerException = StatePocket.JsonPointer.JsonPointerException;
 
 namespace StatePocket.Tools;
 
@@ -26,10 +25,10 @@ internal sealed class GetValueTool(IKvStore kvStore)
     )
     {
         var normalizedNamespace = ToolResultFactory.NormalizeNamespace(@namespace);
-        Pointer? pointer;
+        JsonPointer? pointer;
         try
         {
-            pointer = path is null ? null : new Pointer(path);
+            pointer = path is null ? null : new JsonPointer(path);
         }
         catch (JsonPointerException exception)
         {

@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-    <ItemGroup>
-        <ProjectReference Include="..\StatePocket.JsonPointer\StatePocket.JsonPointer.csproj" />
-    </ItemGroup>
-    <PropertyGroup>
-        <AssemblyName>StatePocket.JsonPatch</AssemblyName>
-        <RootNamespace>StatePocket.JsonPatch</RootNamespace>
-    </PropertyGroup>
-</Project>

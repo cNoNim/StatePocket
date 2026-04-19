@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>StatePocket.Json.Path</AssemblyName>
+        <RootNamespace>StatePocket.Json.Path</RootNamespace>
+    </PropertyGroup>
+</Project>

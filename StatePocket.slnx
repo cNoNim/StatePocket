@@ -1,10 +1,10 @@
 <Solution>
     <Project Path="StatePocket/StatePocket.csproj" />
-    <Project Path="StatePocket.JsonPath/StatePocket.JsonPath.csproj" />
-    <Project Path="StatePocket.JsonPath.Tests/StatePocket.JsonPath.Tests.csproj" />
-    <Project Path="StatePocket.JsonPointer/StatePocket.JsonPointer.csproj" />
-    <Project Path="StatePocket.JsonPointer.Tests/StatePocket.JsonPointer.Tests.csproj" />
-    <Project Path="StatePocket.JsonPatch/StatePocket.JsonPatch.csproj" />
-    <Project Path="StatePocket.JsonPatch.Tests/StatePocket.JsonPatch.Tests.csproj" />
+    <Project Path="StatePocket.Json.Path/StatePocket.Json.Path.csproj" />
+    <Project Path="StatePocket.Json.Path.Tests/StatePocket.Json.Path.Tests.csproj" />
+    <Project Path="StatePocket.Json.Pointer/StatePocket.Json.Pointer.csproj" />
+    <Project Path="StatePocket.Json.Pointer.Tests/StatePocket.Json.Pointer.Tests.csproj" />
+    <Project Path="StatePocket.Json.Patch/StatePocket.Json.Patch.csproj" />
+    <Project Path="StatePocket.Json.Patch.Tests/StatePocket.Json.Patch.Tests.csproj" />
     <Project Path="StatePocket.Tests/StatePocket.Tests.csproj" />
 </Solution>

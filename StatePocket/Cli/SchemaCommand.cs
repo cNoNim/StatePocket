@@ -5,7 +5,7 @@ using ModelContextProtocol.Server;
 using StatePocket.Configuration;
 using StatePocket.Contracts;
 using StatePocket.Hosting;
-using StatePocket.JsonPatch;
+using StatePocket.Json.Patch;
 using StatePocket.Storage;
 
 namespace StatePocket.Cli;
@@ -163,7 +163,7 @@ internal static class SchemaCommand
         public Task<bool> PatchValueAsync(
             string? @namespace,
             string key,
-            PatchDocument patch,
+            JsonPatch patch,
             CancellationToken cancellationToken
         )
         {
