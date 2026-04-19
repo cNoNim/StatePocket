@@ -7,87 +7,85 @@ internal static class StatePocketMcpTools
 {
     public static IReadOnlyCollection<StatePocketMcpToolRegistration> All { get; } =
     [
-        CreateSetValue(),
-        CreateGetValue(),
-        CreateGetValues(),
-        CreateQueryValues(),
-        CreateListNamespaces(),
-        CreateListKeys(),
-        CreateDeleteValue(),
-        CreatePatchValue()
-    ];
-
-    private static StatePocketMcpToolRegistration CreateSetValue()
-    {
-        return new StatePocketMcpToolRegistration(
+        new(
             SetValueTool.ToolName,
             static services => services.AddSingleton<SetValueTool>(),
-            static mcpServerBuilder => mcpServerBuilder.Services.AddSingleton(StatePocketMcpToolFactory.CreateSetValue)
-        );
-    }
-
-    private static StatePocketMcpToolRegistration CreateGetValue()
-    {
-        return new StatePocketMcpToolRegistration(
+            static services =>
+            {
+                var target = services.GetRequiredService<SetValueTool>();
+                var method = target.SetValueAsync;
+                return StatePocketMcpToolFactory.Create(method.Method, target, services);
+            }
+        ),
+        new(
             GetValueTool.ToolName,
             static services => services.AddSingleton<GetValueTool>(),
-            static mcpServerBuilder => mcpServerBuilder.Services.AddSingleton(StatePocketMcpToolFactory.CreateGetValue)
-        );
-    }
-
-    private static StatePocketMcpToolRegistration CreateGetValues()
-    {
-        return new StatePocketMcpToolRegistration(
+            static services =>
+            {
+                var target = services.GetRequiredService<GetValueTool>();
+                var method = target.GetValueAsync;
+                return StatePocketMcpToolFactory.Create(method.Method, target, services);
+            }
+        ),
+        new(
             GetValuesTool.ToolName,
             static services => services.AddSingleton<GetValuesTool>(),
-            static mcpServerBuilder => mcpServerBuilder.Services.AddSingleton(StatePocketMcpToolFactory.CreateGetValues)
-        );
-    }
-
-    private static StatePocketMcpToolRegistration CreateQueryValues()
-    {
-        return new StatePocketMcpToolRegistration(
+            static services =>
+            {
+                var target = services.GetRequiredService<GetValuesTool>();
+                var method = target.GetValuesAsync;
+                return StatePocketMcpToolFactory.Create(method.Method, target, services);
+            }
+        ),
+        new(
             QueryValuesTool.ToolName,
             static services => services.AddSingleton<QueryValuesTool>(),
-            static mcpServerBuilder =>
-                mcpServerBuilder.Services.AddSingleton(StatePocketMcpToolFactory.CreateQueryValues)
-        );
-    }
-
-    private static StatePocketMcpToolRegistration CreateListNamespaces()
-    {
-        return new StatePocketMcpToolRegistration(
+            static services =>
+            {
+                var target = services.GetRequiredService<QueryValuesTool>();
+                var method = target.QueryValuesAsync;
+                return StatePocketMcpToolFactory.Create(method.Method, target, services);
+            }
+        ),
+        new(
             ListNamespacesTool.ToolName,
             static services => services.AddSingleton<ListNamespacesTool>(),
-            static mcpServerBuilder => mcpServerBuilder.WithTools<ListNamespacesTool>()
-        );
-    }
-
-    private static StatePocketMcpToolRegistration CreateListKeys()
-    {
-        return new StatePocketMcpToolRegistration(
+            static services =>
+            {
+                var target = services.GetRequiredService<ListNamespacesTool>();
+                var method = target.ListNamespacesAsync;
+                return StatePocketMcpToolFactory.Create(method.Method, target, services);
+            }
+        ),
+        new(
             ListKeysTool.ToolName,
             static services => services.AddSingleton<ListKeysTool>(),
-            static mcpServerBuilder => mcpServerBuilder.WithTools<ListKeysTool>()
-        );
-    }
-
-    private static StatePocketMcpToolRegistration CreateDeleteValue()
-    {
-        return new StatePocketMcpToolRegistration(
+            static services =>
+            {
+                var target = services.GetRequiredService<ListKeysTool>();
+                var method = target.ListKeysAsync;
+                return StatePocketMcpToolFactory.Create(method.Method, target, services);
+            }
+        ),
+        new(
             DeleteValueTool.ToolName,
             static services => services.AddSingleton<DeleteValueTool>(),
-            static mcpServerBuilder => mcpServerBuilder.WithTools<DeleteValueTool>()
-        );
-    }
-
-    private static StatePocketMcpToolRegistration CreatePatchValue()
-    {
-        return new StatePocketMcpToolRegistration(
+            static services =>
+            {
+                var target = services.GetRequiredService<DeleteValueTool>();
+                var method = target.DeleteValueAsync;
+                return StatePocketMcpToolFactory.Create(method.Method, target, services);
+            }
+        ),
+        new(
             PatchValueTool.ToolName,
             static services => services.AddSingleton<PatchValueTool>(),
-            static mcpServerBuilder =>
-                mcpServerBuilder.Services.AddSingleton(StatePocketMcpToolFactory.CreatePatchValue)
-        );
-    }
+            static services =>
+            {
+                var target = services.GetRequiredService<PatchValueTool>();
+                var method = target.PatchValueAsync;
+                return StatePocketMcpToolFactory.Create(method.Method, target, services);
+            }
+        )
+    ];
 }

@@ -13,7 +13,7 @@ internal static class StatePocketMcpRegistration
     public static StatePocketMcpToolRegistration? FindTool(string toolName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(toolName);
-        return ToolRegistrations.GetValueOrDefault(toolName);
+        return ToolRegistrations.TryGetValue(toolName, out var tool) ? tool : null;
     }
 
     public static IMcpServerBuilder AddServer(IServiceCollection services)

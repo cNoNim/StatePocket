@@ -92,7 +92,6 @@ internal static class SchemaCommand
 
     private static ServiceProvider CreateServices(StatePocketMcpToolRegistration toolRegistration)
     {
-        ArgumentNullException.ThrowIfNull(toolRegistration);
         ServiceCollection services = new();
         services.AddSingleton<IKvStore, SchemaOnlyKvStore>();
         toolRegistration.AddServices(services);

@@ -23,7 +23,7 @@ public sealed class StatePocketMcpToolFactoryTests
     [Fact]
     public void SetValue_OverridesValueSchemaToExplicitAnyJson()
     {
-        var tool = StatePocketMcpToolFactory.CreateSetValue(_services);
+        var tool = CreateTool(SetValueTool.ToolName);
         var propertySchema = GetPropertySchema(tool, "value");
         Assert.Equal(
             "JSON value to store.",
@@ -50,7 +50,7 @@ public sealed class StatePocketMcpToolFactoryTests
     [Fact]
     public void PatchValue_ExposesTypedPatchSchema()
     {
-        var tool = StatePocketMcpToolFactory.CreatePatchValue(_services);
+        var tool = CreateTool(PatchValueTool.ToolName);
         var propertySchema = GetPropertySchema(tool, "patch");
         Assert.Equal(
             "JSON Patch document to apply.",
@@ -120,7 +120,7 @@ public sealed class StatePocketMcpToolFactoryTests
     [Fact]
     public void QueryValues_OverridesEqualsSchemaToExplicitAnyJsonAndPreservesDefault()
     {
-        var tool = StatePocketMcpToolFactory.CreateQueryValues(_services);
+        var tool = CreateTool(QueryValuesTool.ToolName);
         var propertySchema = GetPropertySchema(tool, "equals");
         Assert.Equal(
             "Optional JSON value that at least one query match must equal. Requires query to be set. Pass explicit null to match JSON nulls.",
@@ -164,7 +164,7 @@ public sealed class StatePocketMcpToolFactoryTests
     [Fact]
     public void GetValue_ExposesPathSchemaAsString()
     {
-        var tool = StatePocketMcpToolFactory.CreateGetValue(_services);
+        var tool = CreateTool(GetValueTool.ToolName);
         var propertySchema = GetPropertySchema(tool, "path");
         Assert.Equal(
             ["string", "null"],
@@ -179,7 +179,7 @@ public sealed class StatePocketMcpToolFactoryTests
     [Fact]
     public void GetValues_ExposesPathSchemaAsString()
     {
-        var tool = StatePocketMcpToolFactory.CreateGetValues(_services);
+        var tool = CreateTool(GetValuesTool.ToolName);
         var propertySchema = GetPropertySchema(tool, "path");
         Assert.Equal(
             ["string", "null"],
@@ -194,7 +194,7 @@ public sealed class StatePocketMcpToolFactoryTests
     [Fact]
     public void QueryValues_ExposesPathSchemaAsString()
     {
-        var tool = StatePocketMcpToolFactory.CreateQueryValues(_services);
+        var tool = CreateTool(QueryValuesTool.ToolName);
         var propertySchema = GetPropertySchema(tool, "path");
         Assert.Equal(
             ["string", "null"],
@@ -209,7 +209,7 @@ public sealed class StatePocketMcpToolFactoryTests
     [Fact]
     public async Task JsonExceptionCallToolFilter_PreservesMalformedJsonPointerMessageForGetValue()
     {
-        var tool = StatePocketMcpToolFactory.CreateGetValue(_services);
+        var tool = CreateTool(GetValueTool.ToolName);
         await using var serverServices = CreateMcpServerServices();
         var request = CreateCallToolRequestContext(
             serverServices.GetRequiredService<McpServer>(),
@@ -231,7 +231,7 @@ public sealed class StatePocketMcpToolFactoryTests
     [Fact]
     public async Task JsonExceptionCallToolFilter_PreservesMalformedJsonPointerMessageForPatchValue()
     {
-        var tool = StatePocketMcpToolFactory.CreatePatchValue(_services);
+        var tool = CreateTool(PatchValueTool.ToolName);
         await using var serverServices = CreateMcpServerServices();
         var request = CreateCallToolRequestContext(
             serverServices.GetRequiredService<McpServer>(),
@@ -255,6 +255,13 @@ public sealed class StatePocketMcpToolFactoryTests
     {
         return tool.ProtocolTool.InputSchema.GetProperty("properties")
                    .GetProperty(propertyName);
+    }
+
+    private McpServerTool CreateTool(string toolName)
+    {
+        return StatePocketMcpRegistration.FindTool(toolName)
+                                        ?.Create(_services)
+            ?? throw new InvalidOperationException($"Tool '{toolName}' is not registered.");
     }
 
     private static ServiceProvider CreateMcpServerServices()

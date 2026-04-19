@@ -1,24 +1,29 @@
 using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.Server;
 
 namespace StatePocket.Hosting;
 
-internal sealed class StatePocketMcpToolRegistration(
-    string name,
-    Action<IServiceCollection> addServices,
-    Action<IMcpServerBuilder> addTool
+internal readonly record struct StatePocketMcpToolRegistration(
+    string Name,
+    Action<IServiceCollection> RegisterServices,
+    Func<IServiceProvider, McpServerTool> CreateTool
 )
 {
-    public string Name { get; } = name;
+    public McpServerTool Create(IServiceProvider services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        return CreateTool(services);
+    }
 
     public void AddServices(IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        addServices(services);
+        RegisterServices(services);
     }
 
     public void AddTool(IMcpServerBuilder mcpServerBuilder)
     {
         ArgumentNullException.ThrowIfNull(mcpServerBuilder);
-        addTool(mcpServerBuilder);
+        mcpServerBuilder.Services.AddSingleton(Create);
     }
 }
