@@ -6,6 +6,7 @@ namespace StatePocket.Json.Patch;
 
 [JsonSerializable(typeof(JsonPatch))]
 [JsonSerializable(typeof(IReadOnlyList<JsonPatchOperation>))]
+[JsonSerializable(typeof(JsonPatchOperation?[]), TypeInfoPropertyName = "NullableJsonPatchOperationArrayTypeInfo")]
 [JsonSerializable(typeof(JsonPatchOperation[]))]
 [JsonSerializable(typeof(JsonPatchOperation))]
 [JsonSerializable(typeof(ValueOperation))]

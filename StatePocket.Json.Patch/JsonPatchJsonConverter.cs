@@ -5,11 +5,11 @@ namespace StatePocket.Json.Patch;
 
 internal sealed class JsonPatchJsonConverter : JsonConverter<JsonPatch>
 {
-    private static readonly JsonSerializerOptions ReadOptions = CreateReadOptions();
+    private static readonly JsonPatchJsonContext ReadContext = CreateReadContext();
 
     public override JsonPatch Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        var operations = JsonSerializer.Deserialize<JsonPatchOperation?[]>(ref reader, ReadOptions)
+        var operations = JsonSerializer.Deserialize(ref reader, ReadContext.NullableJsonPatchOperationArrayTypeInfo)
                       ?? throw new JsonException("Patch document must be a JSON array.");
         var nonNullOperations = new JsonPatchOperation[operations.Length];
         for (var i = 0; i < operations.Length; i++)
@@ -21,17 +21,20 @@ internal sealed class JsonPatchJsonConverter : JsonConverter<JsonPatch>
 
     public override void Write(Utf8JsonWriter writer, JsonPatch value, JsonSerializerOptions options)
     {
-        JsonSerializer.Serialize(writer, value.Operations, options);
+        JsonSerializer.Serialize(
+            writer,
+            value.Operations,
+            JsonPatchJsonContext.Default.IReadOnlyListJsonPatchOperation
+        );
     }
 
-    private static JsonSerializerOptions CreateReadOptions()
+    private static JsonPatchJsonContext CreateReadContext()
     {
         JsonSerializerOptions options = new()
         {
             AllowDuplicateProperties = false,
             AllowOutOfOrderMetadataProperties = true
         };
-        options.TypeInfoResolverChain.Insert(0, JsonPatchJsonContext.Default);
-        return options;
+        return new JsonPatchJsonContext(options);
     }
 }
