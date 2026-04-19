@@ -27,7 +27,6 @@ public abstract class JsonPatchOperation
     [JsonIgnore]
     public abstract JsonPatchOperationType Op { get; }
     internal abstract JsonNode? ApplyTo(JsonNode? document);
-    internal abstract void Validate();
 
     public static AddOperation Add(JsonPointer path, JsonNode? value)
     {
@@ -36,7 +35,7 @@ public abstract class JsonPatchOperation
 
     public static AddOperation Add(string path, JsonNode? value)
     {
-        return Add(new JsonPointer(path), value);
+        return Add(JsonPointer.Parse(path, null), value);
     }
 
     public static RemoveOperation Remove(JsonPointer path)
@@ -46,7 +45,7 @@ public abstract class JsonPatchOperation
 
     public static RemoveOperation Remove(string path)
     {
-        return Remove(new JsonPointer(path));
+        return Remove(JsonPointer.Parse(path, null));
     }
 
     public static ReplaceOperation Replace(JsonPointer path, JsonNode? value)
@@ -56,7 +55,7 @@ public abstract class JsonPatchOperation
 
     public static ReplaceOperation Replace(string path, JsonNode? value)
     {
-        return Replace(new JsonPointer(path), value);
+        return Replace(JsonPointer.Parse(path, null), value);
     }
 
     public static MoveOperation Move(JsonPointer from, JsonPointer path)
@@ -66,7 +65,7 @@ public abstract class JsonPatchOperation
 
     public static MoveOperation Move(string from, string path)
     {
-        return Move(new JsonPointer(from), new JsonPointer(path));
+        return Move(JsonPointer.Parse(from, null), JsonPointer.Parse(path, null));
     }
 
     public static CopyOperation Copy(JsonPointer from, JsonPointer path)
@@ -76,7 +75,7 @@ public abstract class JsonPatchOperation
 
     public static CopyOperation Copy(string from, string path)
     {
-        return Copy(new JsonPointer(from), new JsonPointer(path));
+        return Copy(JsonPointer.Parse(from, null), JsonPointer.Parse(path, null));
     }
 
     public static TestOperation Test(JsonPointer path, JsonNode? value)
@@ -86,12 +85,7 @@ public abstract class JsonPatchOperation
 
     public static TestOperation Test(string path, JsonNode? value)
     {
-        return Test(new JsonPointer(path), value);
-    }
-
-    protected void ValidatePath()
-    {
-        ArgumentNullException.ThrowIfNull(Path);
+        return Test(JsonPointer.Parse(path, null), value);
     }
 
     protected static JsonNode? GetTargetNode(JsonNode? document, JsonPointer parsedPath)
@@ -145,18 +139,7 @@ public abstract class JsonPatchOperation
 
     protected static bool PathsEqual(JsonPointer left, JsonPointer right)
     {
-        if (left.Segments.Count != right.Segments.Count)
-        {
-            return false;
-        }
-        for (var i = 0; i < left.Segments.Count; i++)
-        {
-            if (!string.Equals(left.Segments[i], right.Segments[i], StringComparison.Ordinal))
-            {
-                return false;
-            }
-        }
-        return true;
+        return left == right;
     }
 
     protected static JsonNode? CloneValue(JsonNode? value)
@@ -166,9 +149,8 @@ public abstract class JsonPatchOperation
 
     protected static string GetRequiredTargetSegment(JsonPointer parsedPath)
     {
-        return parsedPath.TryGetLastSegment(out var segment)
-          ? segment
-          : throw new JsonPatchException("JSON Pointer path must contain a target segment.");
+        return parsedPath.LastSegment
+            ?? throw new JsonPatchException("JSON Pointer path must contain a target segment.");
     }
 
     private static int ParseArrayIndex(string segment)

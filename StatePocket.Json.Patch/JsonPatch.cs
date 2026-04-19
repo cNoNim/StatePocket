@@ -9,15 +9,15 @@ public sealed class JsonPatch
 {
     private readonly JsonPatchOperation[] _operations;
 
-    public JsonPatch(IEnumerable<JsonPatchOperation> operations)
+    public JsonPatch(IReadOnlyList<JsonPatchOperation> operations) : this(
+        CreateSnapshot(operations ?? throw new ArgumentNullException(nameof(operations)))
+    ) {}
+
+    public JsonPatch(ReadOnlySpan<JsonPatchOperation> operations) : this(CreateSnapshot(operations)) {}
+
+    internal JsonPatch(JsonPatchOperation[] operations)
     {
-        ArgumentNullException.ThrowIfNull(operations);
-        _operations = [.. operations];
-        foreach (var operation in _operations)
-        {
-            ArgumentNullException.ThrowIfNull(operation);
-            operation.Validate();
-        }
+        _operations = operations;
         Operations = Array.AsReadOnly(_operations);
     }
 
@@ -27,5 +27,27 @@ public sealed class JsonPatch
     {
         var workingDocument = document?.DeepClone();
         return _operations.Aggregate(workingDocument, static (current, operation) => operation.ApplyTo(current));
+    }
+
+    private static JsonPatchOperation[] CreateSnapshot(IReadOnlyList<JsonPatchOperation> operations)
+    {
+        JsonPatchOperation[] array = [.. operations];
+        ValidateOperations(array);
+        return array;
+    }
+
+    private static JsonPatchOperation[] CreateSnapshot(ReadOnlySpan<JsonPatchOperation> operations)
+    {
+        JsonPatchOperation[] array = [.. operations];
+        ValidateOperations(array);
+        return array;
+    }
+
+    private static void ValidateOperations(JsonPatchOperation[] operations)
+    {
+        foreach (var operation in operations)
+        {
+            ArgumentNullException.ThrowIfNull(operation);
+        }
     }
 }

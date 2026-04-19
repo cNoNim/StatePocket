@@ -24,6 +24,16 @@ public sealed class JsonPointerSchemaTests
             schema["properties"]?[nameof(PointerContainer.Path)]?["type"]
               ?.GetValue<string>()
         );
+        Assert.Equal(
+            ["string", "null"],
+            [
+                .. Assert.IsAssignableFrom<JsonArray>(
+                              schema["properties"]?[nameof(PointerContainer.OptionalPath)]?["type"]
+                          )
+                         .Select(static value => value?.GetValue<string>())
+                         .OfType<string>()
+            ]
+        );
     }
 
     [Fact]
@@ -48,8 +58,34 @@ public sealed class JsonPointerSchemaTests
         );
     }
 
+    [Fact]
+    public void TransformJsonPointerSchema_MapsNullableJsonPointerToNullableString()
+    {
+        var transformed = JsonPointerSchemaExtensions.TransformJsonPointerSchema(
+            typeof(JsonPointer?),
+            new JsonObject
+            {
+                ["description"] = JsonValue.Create("custom")
+            }
+        );
+        Assert.Equal(
+            ["string", "null"],
+            [
+                .. Assert.IsAssignableFrom<JsonArray>(transformed["type"])
+                         .Select(static value => value?.GetValue<string>())
+                         .OfType<string>()
+            ]
+        );
+        Assert.Equal(
+            "custom",
+            transformed["description"]
+              ?.GetValue<string>()
+        );
+    }
+
     private sealed class PointerContainer
     {
         public required JsonPointer Path { get; init; }
+        public JsonPointer? OptionalPath { get; init; }
     }
 }

@@ -15,11 +15,6 @@ public sealed class AddOperation : ValueOperation
     [JsonIgnore]
     public override JsonPatchOperationType Op => JsonPatchOperationType.Add;
 
-    internal override void Validate()
-    {
-        ValidatePath();
-    }
-
     internal override JsonNode? ApplyTo(JsonNode? document)
     {
         if (Path.IsRoot)

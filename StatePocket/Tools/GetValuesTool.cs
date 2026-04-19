@@ -77,7 +77,7 @@ internal sealed class GetValuesTool(IKvStore kvStore)
                 ExpiresAt = storedValue.ExpiresAt
             };
         }
-        return pointer.TryEvaluate(storedValue.Value, out var projectedValue)
+        return pointer.Value.TryEvaluate(storedValue.Value, out var projectedValue)
           ? new GetValuesEntryData
             {
                 Found = true,

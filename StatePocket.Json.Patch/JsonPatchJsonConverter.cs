@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -10,23 +9,12 @@ internal sealed class JsonPatchJsonConverter : JsonConverter<JsonPatch>
 
     public override JsonPatch Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        var operations = JsonSerializer.Deserialize<JsonPatchOperation?[]>(ref reader, ReadOptions);
-        if (operations is null)
-        {
-            throw new JsonException("Patch document must be a JSON array.");
-        }
-        foreach (var operation in operations)
-        {
-            if (operation is null)
-            {
-                throw new JsonException("Patch operation must be a JSON object.");
-            }
-        }
+        var operations = JsonSerializer.Deserialize<JsonPatchOperation?[]>(ref reader, ReadOptions)
+                      ?? throw new JsonException("Patch document must be a JSON array.");
         var nonNullOperations = new JsonPatchOperation[operations.Length];
         for (var i = 0; i < operations.Length; i++)
         {
-            nonNullOperations[i] =
-                operations[i] ?? throw new UnreachableException("Null patch operations are filtered above.");
+            nonNullOperations[i] = operations[i] ?? throw new JsonException("Patch operation must be a JSON object.");
         }
         return new JsonPatch(nonNullOperations);
     }

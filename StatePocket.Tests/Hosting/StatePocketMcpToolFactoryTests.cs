@@ -167,9 +167,12 @@ public sealed class StatePocketMcpToolFactoryTests
         var tool = StatePocketMcpToolFactory.CreateGetValue(_services);
         var propertySchema = GetPropertySchema(tool, "path");
         Assert.Equal(
-            "string",
-            propertySchema.GetProperty("type")
-                          .GetString()
+            ["string", "null"],
+            [
+                .. propertySchema.GetProperty("type")
+                                 .EnumerateArray()
+                                 .Select(static value => value.GetString()!)
+            ]
         );
     }
 
@@ -179,9 +182,12 @@ public sealed class StatePocketMcpToolFactoryTests
         var tool = StatePocketMcpToolFactory.CreateGetValues(_services);
         var propertySchema = GetPropertySchema(tool, "path");
         Assert.Equal(
-            "string",
-            propertySchema.GetProperty("type")
-                          .GetString()
+            ["string", "null"],
+            [
+                .. propertySchema.GetProperty("type")
+                                 .EnumerateArray()
+                                 .Select(static value => value.GetString()!)
+            ]
         );
     }
 
@@ -191,9 +197,12 @@ public sealed class StatePocketMcpToolFactoryTests
         var tool = StatePocketMcpToolFactory.CreateQueryValues(_services);
         var propertySchema = GetPropertySchema(tool, "path");
         Assert.Equal(
-            "string",
-            propertySchema.GetProperty("type")
-                          .GetString()
+            ["string", "null"],
+            [
+                .. propertySchema.GetProperty("type")
+                                 .EnumerateArray()
+                                 .Select(static value => value.GetString()!)
+            ]
         );
     }
 

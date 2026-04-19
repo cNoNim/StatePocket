@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using StatePocket.Json.Pointer;
 
 namespace StatePocket.Json.Patch.Tests;
 
@@ -148,8 +149,19 @@ public sealed class JsonPatchTests
         JsonPatch patchDocument = new([JsonPatchOperation.Copy("/source", "/target")]);
         var operation = Assert.IsType<CopyOperation>(Assert.Single(patchDocument.Operations));
         Assert.Equal(JsonPatchOperationType.Copy, operation.Op);
-        Assert.Equal("/target", operation.Path.ToString());
-        Assert.Equal("/source", operation.From.ToString());
+        Assert.Equal(JsonPointer.Parse("/target", null), operation.Path);
+        Assert.Equal(JsonPointer.Parse("/source", null), operation.From);
+    }
+
+    [Fact]
+    public void Constructor_ReadOnlySpan_ExposesTypedOperations()
+    {
+        ReadOnlySpan<JsonPatchOperation> operations = [JsonPatchOperation.Copy("/source", "/target")];
+        JsonPatch patchDocument = new(operations);
+        var operation = Assert.IsType<CopyOperation>(Assert.Single(patchDocument.Operations));
+        Assert.Equal(JsonPatchOperationType.Copy, operation.Op);
+        Assert.Equal(JsonPointer.Parse("/target", null), operation.Path);
+        Assert.Equal(JsonPointer.Parse("/source", null), operation.From);
     }
 
     [Fact]
@@ -168,8 +180,8 @@ public sealed class JsonPatchTests
          ?? throw new InvalidOperationException("Expected patch document.");
         var operation = Assert.IsType<CopyOperation>(Assert.Single(patchDocument.Operations));
         Assert.Equal(JsonPatchOperationType.Copy, operation.Op);
-        Assert.Equal("/target", operation.Path.ToString());
-        Assert.Equal("/source", operation.From.ToString());
+        Assert.Equal(JsonPointer.Parse("/target", null), operation.Path);
+        Assert.Equal(JsonPointer.Parse("/source", null), operation.From);
     }
 
     [Fact]
@@ -180,8 +192,8 @@ public sealed class JsonPatchTests
          ?? throw new InvalidOperationException("Expected patch document.");
         var operation = Assert.IsType<CopyOperation>(Assert.Single(patchDocument.Operations));
         Assert.Equal(JsonPatchOperationType.Copy, operation.Op);
-        Assert.Equal("/target", operation.Path.ToString());
-        Assert.Equal("/source", operation.From.ToString());
+        Assert.Equal(JsonPointer.Parse("/target", null), operation.Path);
+        Assert.Equal(JsonPointer.Parse("/source", null), operation.From);
     }
 
     [Fact]
@@ -194,7 +206,7 @@ public sealed class JsonPatchTests
          ?? throw new InvalidOperationException("Expected patch document.");
         var operation = Assert.IsType<AddOperation>(Assert.Single(patchDocument.Operations));
         Assert.Equal(JsonPatchOperationType.Add, operation.Op);
-        Assert.Equal("/value", operation.Path.ToString());
+        Assert.Equal(JsonPointer.Parse("/value", null), operation.Path);
         Assert.Equal("1", operation.Value?.ToJsonString());
     }
 
@@ -220,7 +232,7 @@ public sealed class JsonPatchTests
          ?? throw new InvalidOperationException("Expected patch document.");
         var operation = Assert.IsType<AddOperation>(Assert.Single(patchDocument.Operations));
         Assert.Equal(JsonPatchOperationType.Add, operation.Op);
-        Assert.Equal("/value", operation.Path.ToString());
+        Assert.Equal(JsonPointer.Parse("/value", null), operation.Path);
         Assert.Equal("1", operation.Value?.ToJsonString());
     }
 

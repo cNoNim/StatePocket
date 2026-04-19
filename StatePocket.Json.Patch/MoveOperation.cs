@@ -15,12 +15,6 @@ public sealed class MoveOperation : FromOperation
     [JsonIgnore]
     public override JsonPatchOperationType Op => JsonPatchOperationType.Move;
 
-    internal override void Validate()
-    {
-        ValidatePath();
-        ArgumentNullException.ThrowIfNull(From);
-    }
-
     internal override JsonNode? ApplyTo(JsonNode? document)
     {
         var sourceValue = GetTargetNode(document, From);

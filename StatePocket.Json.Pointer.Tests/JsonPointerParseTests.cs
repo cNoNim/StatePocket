@@ -5,13 +5,9 @@ public sealed class JsonPointerParseTests
     [Fact]
     public void Parse_EmptyPath_ReturnsRoot()
     {
-        JsonPointer pointer = new("");
+        var pointer = JsonPointer.Parse("", null);
         Assert.True(pointer.IsRoot);
-        Assert.False(pointer.HasSegments);
-        Assert.Empty(pointer.Segments);
         Assert.Null(pointer.LastSegment);
-        Assert.False(pointer.TryGetLastSegment(out var segment));
-        Assert.Null(segment);
     }
 
     [Theory]
@@ -49,13 +45,9 @@ public sealed class JsonPointerParseTests
     )]
     public void Parse_ValidPath_ReturnsSegments(string path, string[] expectedSegments)
     {
-        JsonPointer pointer = new(path);
+        var pointer = JsonPointer.Parse(path, null);
         Assert.False(pointer.IsRoot);
-        Assert.True(pointer.HasSegments);
-        Assert.Equal(expectedSegments, pointer.Segments);
         Assert.Equal(expectedSegments[^1], pointer.LastSegment);
-        Assert.True(pointer.TryGetLastSegment(out var segment));
-        Assert.Equal(expectedSegments[^1], segment);
     }
 
     [Theory]
@@ -66,7 +58,7 @@ public sealed class JsonPointerParseTests
     [InlineData("/foo/~0/~1~1/~0~0/baz")]
     public void ToString_RoundTripsPointer(string path)
     {
-        JsonPointer pointer = new(path);
+        var pointer = JsonPointer.Parse(path, null);
         Assert.Equal(path, pointer.ToString());
     }
 
@@ -75,7 +67,7 @@ public sealed class JsonPointerParseTests
     [InlineData("foo/bar")]
     public void Parse_PathWithoutLeadingSlash_Throws(string path)
     {
-        Assert.Throws<JsonPointerException>(() => _ = new JsonPointer(path));
+        Assert.Throws<JsonPointerException>(() => _ = JsonPointer.Parse(path, null));
     }
 
     [Theory]
@@ -85,7 +77,6 @@ public sealed class JsonPointerParseTests
     {
         var parsed = JsonPointer.TryParse(path, out var pointer);
         Assert.True(parsed);
-        Assert.NotNull(pointer);
         Assert.Equal(path, pointer.ToString());
     }
 
@@ -97,7 +88,7 @@ public sealed class JsonPointerParseTests
     {
         var parsed = JsonPointer.TryParse(path, out var pointer);
         Assert.False(parsed);
-        Assert.Null(pointer);
+        Assert.Equal(default, pointer);
     }
 
     [Theory]
@@ -106,6 +97,22 @@ public sealed class JsonPointerParseTests
     [InlineData("/foo/~a")]
     public void Parse_PathWithInvalidEscape_Throws(string path)
     {
-        Assert.Throws<JsonPointerException>(() => _ = new JsonPointer(path));
+        Assert.Throws<JsonPointerException>(() => _ = JsonPointer.Parse(path, null));
+    }
+
+    [Fact]
+    public void DefaultPointer_BehavesAsRoot()
+    {
+        JsonPointer pointer = default;
+        Assert.True(pointer.IsRoot);
+        Assert.Null(pointer.LastSegment);
+        Assert.Equal("", pointer.ToString());
+    }
+
+    [Fact]
+    public void Equality_IsValueBased()
+    {
+        Assert.Equal(JsonPointer.Parse("/foo/bar", null), JsonPointer.Parse("/foo/bar", null));
+        Assert.NotEqual(JsonPointer.Parse("/foo/bar", null), JsonPointer.Parse("/foo/baz", null));
     }
 }

@@ -47,7 +47,7 @@ public sealed class ToolResponseTests : IDisposable
 
     private static JsonPointer? ParsePointer(string? path)
     {
-        return path is null ? null : new JsonPointer(path);
+        return path is null ? null : JsonPointer.Parse(path, null);
     }
 
     [Fact]
@@ -1470,6 +1470,6 @@ internal static class ToolResponseTestExtensions
 
     private static JsonPointer? ParsePointer(string? path)
     {
-        return path is null ? null : new JsonPointer(path);
+        return path is null ? null : JsonPointer.Parse(path, null);
     }
 }

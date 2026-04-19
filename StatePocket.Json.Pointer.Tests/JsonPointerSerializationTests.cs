@@ -9,7 +9,7 @@ public sealed partial class JsonPointerSerializationTests
     [Fact]
     public void Serialize_WritesJsonString()
     {
-        var json = JsonSerializer.Serialize(new JsonPointer("/foo/bar"));
+        var json = JsonSerializer.Serialize(JsonPointer.Parse("/foo/bar", null));
         Assert.Equal("\"/foo/bar\"", json);
     }
 
@@ -17,8 +17,18 @@ public sealed partial class JsonPointerSerializationTests
     public void Deserialize_ReadsJsonString()
     {
         var pointer = JsonSerializer.Deserialize<JsonPointer>("\"/foo/bar\"");
-        Assert.NotNull(pointer);
         Assert.Equal("/foo/bar", pointer.ToString());
+    }
+
+    [Fact]
+    public void SerializeAndDeserialize_EscapedJsonString_RoundTrips()
+    {
+        var pointer = JsonPointer.Parse("/foo\"bar\\baz", null);
+        var json = JsonSerializer.Serialize(pointer);
+        var roundTrip = JsonSerializer.Deserialize<JsonPointer>(json);
+        Assert.Contains("""/foo""", json);
+        Assert.Contains("""bar\\baz""", json);
+        Assert.Equal(pointer, roundTrip);
     }
 
     [Fact]
@@ -35,13 +45,12 @@ public sealed partial class JsonPointerSerializationTests
     {
         var value = new JsonPointerHolder
         {
-            Path = new JsonPointer("/foo/bar")
+            Path = JsonPointer.Parse("/foo/bar", null)
         };
         var json = JsonSerializer.Serialize(value);
         var roundTrip = JsonSerializer.Deserialize<JsonPointerHolder>(json);
         Assert.Equal("""{"Path":"/foo/bar"}""", json);
-        Assert.NotNull(roundTrip);
-        Assert.Equal("/foo/bar", roundTrip.Path.ToString());
+        Assert.Equal(JsonPointer.Parse("/foo/bar", null), roundTrip?.Path);
     }
 
     [Fact]
@@ -49,13 +58,13 @@ public sealed partial class JsonPointerSerializationTests
     {
         var value = new JsonPointerHolder
         {
-            Path = new JsonPointer("/foo/bar")
+            Path = JsonPointer.Parse("/foo/bar", null)
         };
         var json = JsonSerializer.Serialize(value, JsonPointerTestJsonContext.Default.JsonPointerHolder);
         var roundTrip = JsonSerializer.Deserialize(json, JsonPointerTestJsonContext.Default.JsonPointerHolder);
         Assert.Equal("""{"Path":"/foo/bar"}""", json);
         var typed = Assert.IsType<JsonPointerHolder>(roundTrip);
-        Assert.Equal("/foo/bar", typed.Path.ToString());
+        Assert.Equal(JsonPointer.Parse("/foo/bar", null), typed.Path);
     }
 
     [Fact]
@@ -65,6 +74,7 @@ public sealed partial class JsonPointerSerializationTests
         Assert.True(converter.CanConvertFrom(typeof(string)));
         Assert.True(converter.CanConvertTo(typeof(string)));
         var pointer = Assert.IsType<JsonPointer>(converter.ConvertFromInvariantString("/foo/bar"));
+        Assert.Equal(JsonPointer.Parse("/foo/bar", null), pointer);
         Assert.Equal("/foo/bar", converter.ConvertToInvariantString(pointer));
     }
 

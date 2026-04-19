@@ -15,12 +15,6 @@ public sealed class CopyOperation : FromOperation
     [JsonIgnore]
     public override JsonPatchOperationType Op => JsonPatchOperationType.Copy;
 
-    internal override void Validate()
-    {
-        ValidatePath();
-        ArgumentNullException.ThrowIfNull(From);
-    }
-
     internal override JsonNode? ApplyTo(JsonNode? document)
     {
         var value = CloneValue(GetTargetNode(document, From));

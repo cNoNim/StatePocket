@@ -19,4 +19,5 @@ namespace StatePocket.Json.Patch;
 [JsonSerializable(typeof(JsonPatchOperationType))]
 [JsonSerializable(typeof(JsonNode))]
 [JsonSerializable(typeof(JsonPointer), TypeInfoPropertyName = "JsonPointerTypeInfo")]
+[JsonSerializable(typeof(JsonPointer?), TypeInfoPropertyName = "NullableJsonPointerTypeInfo")]
 public sealed partial class JsonPatchJsonContext : JsonSerializerContext;

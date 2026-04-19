@@ -15,11 +15,6 @@ public sealed class RemoveOperation : JsonPatchOperation
     [JsonIgnore]
     public override JsonPatchOperationType Op => JsonPatchOperationType.Remove;
 
-    internal override void Validate()
-    {
-        ValidatePath();
-    }
-
     internal override JsonNode? ApplyTo(JsonNode? document)
     {
         if (Path.IsRoot)

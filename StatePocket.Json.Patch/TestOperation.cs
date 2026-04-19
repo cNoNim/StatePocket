@@ -15,11 +15,6 @@ public sealed class TestOperation : ValueOperation
     [JsonIgnore]
     public override JsonPatchOperationType Op => JsonPatchOperationType.Test;
 
-    internal override void Validate()
-    {
-        ValidatePath();
-    }
-
     internal override JsonNode? ApplyTo(JsonNode? document)
     {
         var actual = GetTargetNode(document, Path);
