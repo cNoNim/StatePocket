@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
 using StatePocket.Configuration;
 using StatePocket.JsonPatch;
@@ -316,18 +317,17 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
     public Task<bool> PatchValueAsync(
         string? @namespace,
         string key,
-        JsonElement patch,
+        PatchDocument patch,
         CancellationToken cancellationToken
     )
     {
-        var patchDocument = PatchDocument.Parse(patch);
         var normalizedNamespace = NormalizeNamespace(@namespace);
         var now = FormatTimestamp(timeProvider.GetUtcNow());
         var updatedAt = FormatTimestamp(timeProvider.GetUtcNow());
         return ExecuteWriteAsync(() => ExecutePatchValueCoreAsync(
                 normalizedNamespace,
                 key,
-                patchDocument,
+                patch,
                 updatedAt,
                 now,
                 cancellationToken
@@ -679,7 +679,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
                                          .ConfigureAwait(false);
                         return false;
                     }
-                    var updatedValue = patchDocument.Apply(ParseJson(rawJson));
+                    var updatedValue = patchDocument.Apply(ParseNode(rawJson));
                     var updated = await PersistUpdatedValueAsync(
                             connection,
                             transaction,
@@ -720,6 +720,11 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
     {
         using var document = JsonDocument.Parse(rawJson);
         return document.RootElement.Clone();
+    }
+
+    private static JsonNode? ParseNode(string rawJson)
+    {
+        return JsonNode.Parse(rawJson);
     }
 
     private static async Task<string?> LoadCurrentValueAsync(
@@ -764,7 +769,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
         SqliteTransaction transaction,
         string @namespace,
         string key,
-        JsonElement updatedValue,
+        JsonNode? updatedValue,
         string updatedAt,
         string now,
         CancellationToken cancellationToken
@@ -782,7 +787,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
                                     AND key = $key
                                     AND (expires_at IS NULL OR expires_at > $now);
                                   """;
-            command.Parameters.AddWithValue("$value", updatedValue.GetRawText());
+            command.Parameters.AddWithValue("$value", updatedValue?.ToJsonString() ?? "null");
             command.Parameters.AddWithValue("$updated_at", updatedAt);
             command.Parameters.AddWithValue("$namespace", @namespace);
             command.Parameters.AddWithValue("$key", key);

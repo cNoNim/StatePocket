@@ -1,9 +1,9 @@
 using System.ComponentModel;
-using System.Text.Json;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
+using StatePocket.JsonPatch;
 using StatePocket.JsonPatch.Exceptions;
 using StatePocket.Storage;
 
@@ -17,7 +17,7 @@ internal sealed class PatchValueTool(IKvStore kvStore)
     [Description("Applies an RFC 6902 JSON Patch document to an existing value in the selected namespace.")]
     internal async Task<CallToolResult> PatchValueAsync(
         [Description("Key to patch.")] string key,
-        [Description("JSON Patch document to apply.")] JsonElement patch,
+        [Description("JSON Patch document to apply.")] PatchDocument patch,
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
         CancellationToken cancellationToken = default
     )

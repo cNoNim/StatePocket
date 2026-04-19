@@ -53,11 +53,16 @@ public sealed class ReferenceSuiteTests
         _ = sourceFile;
         _ = comment;
         var document = ParseNode(documentJson);
-        Assert.Throws<JsonPatchException>(() =>
+        var exception = Record.Exception(() =>
             {
                 var patchDocument = ParsePatchDocument(patchJson);
                 _ = patchDocument.Apply(document);
             }
+        );
+        Assert.NotNull(exception);
+        Assert.True(
+            exception is JsonPatchException or JsonException,
+            $"Expected JsonPatchException or JsonException but got '{exception.GetType().Name}'."
         );
         AssertJson(documentJson, document);
     }
@@ -105,8 +110,8 @@ public sealed class ReferenceSuiteTests
 
     private static PatchDocument ParsePatchDocument(string patchJson)
     {
-        using var document = JsonDocument.Parse(patchJson);
-        return PatchDocument.Parse(document.RootElement);
+        return JsonSerializer.Deserialize<PatchDocument>(patchJson)
+            ?? throw new InvalidOperationException("Patch JSON must deserialize.");
     }
 
     private static void AssertJson(string expectedJson, JsonNode? actual)

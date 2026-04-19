@@ -1,7 +1,9 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Time.Testing;
 using StatePocket.Configuration;
+using StatePocket.JsonPatch;
 using StatePocket.JsonPatch.Exceptions;
 using StatePocket.Storage;
 
@@ -648,13 +650,9 @@ public sealed class SqliteKvStoreTests : IDisposable
         var updated = await _store.PatchValueAsync(
             "default",
             "profile",
-            ParseJson(
-                """
-                [
-                  { "op": "replace", "path": "/name", "value": "new" },
-                  { "op": "add", "path": "/tags/-", "value": "b" }
-                ]
-                """
+            Patch(
+                PatchOperation.Replace("/name", JsonValue.Create("new")),
+                PatchOperation.Add("/tags/-", JsonValue.Create("b"))
             ),
             CancellationToken.None
         );
@@ -672,7 +670,7 @@ public sealed class SqliteKvStoreTests : IDisposable
         var updated = await _store.PatchValueAsync(
             "default",
             "missing",
-            ParseJson("""[{ "op": "add", "path": "/foo", "value": 1 }]"""),
+            Patch(PatchOperation.Add("/foo", JsonValue.Create(1))),
             CancellationToken.None
         );
         Assert.False(updated);
@@ -691,7 +689,7 @@ public sealed class SqliteKvStoreTests : IDisposable
         var updated = await _store.PatchValueAsync(
             "default",
             "expired",
-            ParseJson("""[{ "op": "replace", "path": "/name", "value": "new" }]"""),
+            Patch(PatchOperation.Replace("/name", JsonValue.Create("new"))),
             CancellationToken.None
         );
         Assert.False(updated);
@@ -713,13 +711,9 @@ public sealed class SqliteKvStoreTests : IDisposable
             return _store.PatchValueAsync(
                 "default",
                 "profile",
-                ParseJson(
-                    """
-                    [
-                      { "op": "replace", "path": "/version", "value": 2 },
-                      { "op": "test", "path": "/name", "value": "other" }
-                    ]
-                    """
+                Patch(
+                    PatchOperation.Replace("/version", JsonValue.Create(2)),
+                    PatchOperation.Test("/name", JsonValue.Create("other"))
                 ),
                 CancellationToken.None
             );
@@ -744,14 +738,7 @@ public sealed class SqliteKvStoreTests : IDisposable
         var updated = await _store.PatchValueAsync(
             "default",
             "profile",
-            ParseJson(
-                """
-                [
-                  { "op": "copy", "from": "/nested", "path": "/nestedCopy" },
-                  { "op": "move", "from": "/name", "path": "/displayName" }
-                ]
-                """
-            ),
+            Patch(PatchOperation.Copy("/nested", "/nestedCopy"), PatchOperation.Move("/name", "/displayName")),
             CancellationToken.None
         );
         var storedEntry = await _store.GetValueAsync("default", "profile", CancellationToken.None);
@@ -767,6 +754,11 @@ public sealed class SqliteKvStoreTests : IDisposable
     {
         using var document = JsonDocument.Parse(json);
         return document.RootElement.Clone();
+    }
+
+    private static PatchDocument Patch(params PatchOperation[] operations)
+    {
+        return new PatchDocument(operations);
     }
 
     private async Task<WriteLockHandle> AcquireWriteLockAsync()

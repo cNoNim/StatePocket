@@ -1,57 +1,77 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using StatePocket.JsonPatch.Exceptions;
+using StatePocket.JsonPointer;
 
 namespace StatePocket.JsonPatch.Tests;
 
 public sealed class StrictParsingTests
 {
-    public static TheoryData<string, string> DuplicatePropertyCases =>
-    [
-        new TheoryDataRow<string, string>(
-            "duplicate op",
-            """[{ "op": "add", "path": "/x", "value": 1, "op": "remove" }]"""
-        ),
-        new TheoryDataRow<string, string>(
-            "duplicate path",
-            """[{ "op": "add", "path": "/x", "value": 1, "path": "/y" }]"""
-        ),
-        new TheoryDataRow<string, string>(
-            "duplicate from",
-            """[{ "op": "copy", "from": "/x", "path": "/y", "from": "/z" }]"""
-        ),
-        new TheoryDataRow<string, string>(
-            "duplicate value",
-            """[{ "op": "add", "path": "/x", "value": 1, "value": 2 }]"""
-        )
-    ];
-    public static TheoryData<string, string> InvalidArrayIndexCases =>
-    [
-        new TheoryDataRow<string, string>("leading zero", """[{ "op": "add", "path": "/01", "value": "x" }]"""),
-        new TheoryDataRow<string, string>("plus sign", """[{ "op": "add", "path": "/+1", "value": "x" }]""")
-    ];
-
     [Theory]
-    [MemberData(nameof(DuplicatePropertyCases))]
-    public void Parse_DuplicateKnownProperty_Throws(string comment, string patchJson)
+    [InlineData(PatchOperationType.Add)]
+    [InlineData(PatchOperationType.Replace)]
+    [InlineData(PatchOperationType.Test)]
+    public void Deserialize_MissingValueForValueOperations_ThrowsJsonException(PatchOperationType operationType)
     {
-        _ = comment;
-        using var document = JsonDocument.Parse(patchJson);
-        Assert.Throws<JsonPatchException>(() => _ = PatchDocument.Parse(document.RootElement));
+        var exception = Assert.Throws<JsonException>(() =>
+            JsonSerializer.Deserialize<PatchDocument>($"[{{\"op\":\"{ToJsonName(operationType)}\",\"path\":\"/x\"}}]")
+        );
+        Assert.Contains("value", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
-    [MemberData(nameof(InvalidArrayIndexCases))]
-    public void Apply_InvalidArrayIndexFormat_Throws(string comment, string patchJson)
+    [InlineData(PatchOperationType.Move)]
+    [InlineData(PatchOperationType.Copy)]
+    public void Deserialize_MissingFromForMoveOrCopy_ThrowsJsonException(PatchOperationType operationType)
     {
-        _ = comment;
-        using var document = JsonDocument.Parse(patchJson);
-        var patch = PatchDocument.Parse(document.RootElement);
-        Assert.Throws<JsonPatchException>(() => _ = patch.Apply(ParseJson("""["a"]""")));
+        var exception = Assert.Throws<JsonException>(() =>
+            JsonSerializer.Deserialize<PatchDocument>($"[{{\"op\":\"{ToJsonName(operationType)}\",\"path\":\"/x\"}}]")
+        );
+        Assert.Contains("from", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static JsonElement ParseJson(string json)
+    [Fact]
+    public void Deserialize_NullPatchOperation_ThrowsJsonException()
     {
-        using var document = JsonDocument.Parse(json);
-        return document.RootElement.Clone();
+        var exception = Assert.Throws<JsonException>(static () => JsonSerializer.Deserialize<PatchDocument>("[null]"));
+        Assert.Contains("object", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("/01")]
+    [InlineData("/+1")]
+    public void Apply_InvalidArrayIndexFormat_Throws(string path)
+    {
+        var patch = new PatchDocument([PatchOperation.Add(path, JsonValue.Create("x"))]);
+        Assert.Throws<JsonPatchException>(() => _ = patch.Apply(ParseNode("""["a"]""")));
+    }
+
+    [Theory]
+    [InlineData("name")]
+    [InlineData("foo")]
+    public void Constructor_InvalidJsonPointer_ThrowsJsonPointerException(string path)
+    {
+        Assert.Throws<JsonPointerException>(() =>
+            _ = new PatchDocument([PatchOperation.Replace(path, JsonValue.Create(1))])
+        );
+    }
+
+    private static JsonNode ParseNode(string json)
+    {
+        return JsonNode.Parse(json) ?? throw new InvalidOperationException("JSON must parse.");
+    }
+
+    private static string ToJsonName(PatchOperationType operationType)
+    {
+        return operationType switch
+        {
+            PatchOperationType.Add => "add",
+            PatchOperationType.Remove => "remove",
+            PatchOperationType.Replace => "replace",
+            PatchOperationType.Move => "move",
+            PatchOperationType.Copy => "copy",
+            PatchOperationType.Test => "test",
+            _ => throw new InvalidOperationException($"Unsupported operation type '{operationType}'.")
+        };
     }
 }

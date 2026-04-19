@@ -1,10 +1,13 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Time.Testing;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using StatePocket.Configuration;
 using StatePocket.Contracts;
+using StatePocket.JsonPatch;
+using StatePocket.JsonPointer;
 using StatePocket.Storage;
 using StatePocket.Tools;
 
@@ -40,16 +43,6 @@ public sealed class ToolResponseTests : IDisposable
     public void Dispose()
     {
         File.Delete(_databasePath);
-    }
-
-    [Fact]
-    public void JsonElementNullable_DeserializesNullAndMissingAsNull()
-    {
-        var explicitNull = JsonSerializer.Deserialize<JsonElement?>("null");
-        var dictionary = JsonSerializer.Deserialize<Dictionary<string, JsonElement?>>("{}")!;
-        var missing = dictionary.GetValueOrDefault("missing");
-        Assert.Null(explicitNull);
-        Assert.Null(missing);
     }
 
     [Fact]
@@ -918,7 +911,7 @@ public sealed class ToolResponseTests : IDisposable
         );
         var result = await updateTool.PatchValueAsync(
             "profile",
-            ParseJson("""[{ "op": "replace", "path": "/name", "value": "new" }]"""),
+            Patch(Replace("/name", "\"new\"")),
             "codex",
             CancellationToken.None
         );
@@ -934,7 +927,7 @@ public sealed class ToolResponseTests : IDisposable
         PatchValueTool tool = new(_store);
         var exception = await Assert.ThrowsAsync<McpException>(() => tool.PatchValueCoreAsync(
                 "missing",
-                ParseJson("""[{ "op": "replace", "path": "/name", "value": "new" }]"""),
+                Patch(Replace("/name", "\"new\"")),
                 "codex",
                 CancellationToken.None
             )
@@ -943,16 +936,9 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task PatchValueCore_ThrowsMcpExceptionForMalformedPointerEvenWhenKeyIsMissing()
+    public void PatchValueCore_ThrowsForMalformedPointerBeforeToolExecution()
     {
-        PatchValueTool tool = new(_store);
-        await Assert.ThrowsAsync<McpException>(() => tool.PatchValueCoreAsync(
-                "missing",
-                ParseJson("""[{ "op": "replace", "path": "name", "value": "new" }]"""),
-                "codex",
-                CancellationToken.None
-            )
-        );
+        Assert.Throws<JsonPointerException>(static () => Patch(PatchOperation.Replace("name", ParseNode("\"new\""))));
     }
 
     [Fact]
@@ -969,7 +955,7 @@ public sealed class ToolResponseTests : IDisposable
         );
         await Assert.ThrowsAsync<McpException>(() => updateTool.PatchValueCoreAsync(
                 "profile",
-                ParseJson("""[{ "op": "test", "path": "/name", "value": "other" }]"""),
+                Patch(Test("/name", "\"other\"")),
                 "codex",
                 CancellationToken.None
             )
@@ -991,7 +977,7 @@ public sealed class ToolResponseTests : IDisposable
         await using var lockHandle = await AcquireWriteLockAsync();
         var exception = await Assert.ThrowsAsync<McpException>(() => patchTool.PatchValueAsync(
                 "profile",
-                ParseJson("""[{ "op": "replace", "path": "/name", "value": "new" }]"""),
+                Patch(Replace("/name", "\"new\"")),
                 "codex",
                 CancellationToken.None
             )
@@ -1015,14 +1001,7 @@ public sealed class ToolResponseTests : IDisposable
         );
         var result = await updateTool.PatchValueCoreAsync(
             "profile",
-            ParseJson(
-                """
-                [
-                  { "op": "copy", "from": "/nested", "path": "/nestedCopy" },
-                  { "op": "move", "from": "/name", "path": "/displayName" }
-                ]
-                """
-            ),
+            Patch(Copy("/nested", "/nestedCopy"), Move("/name", "/displayName")),
             "codex",
             CancellationToken.None
         );
@@ -1043,24 +1022,12 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task PatchValue_ThrowsMcpExceptionWhenMoveOrCopyMissesFrom()
+    public void PatchValue_JsonContractRequiresFromForMoveAndCopy()
     {
-        SetValueTool setTool = new(_store);
-        PatchValueTool updateTool = new(_store);
-        await setTool.SetValueCoreAsync(
-            "profile",
-            ParseJson("{\"name\":\"old\"}"),
-            "codex",
-            null,
-            CancellationToken.None
+        var exception = Assert.Throws<JsonException>(static () =>
+            JsonSerializer.Deserialize<PatchDocument>("""[{ "op": "copy", "path": "/nameCopy" }]""")
         );
-        await Assert.ThrowsAsync<McpException>(() => updateTool.PatchValueCoreAsync(
-                "profile",
-                ParseJson("""[{ "op": "copy", "path": "/nameCopy" }]"""),
-                "codex",
-                CancellationToken.None
-            )
-        );
+        Assert.Contains("from", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -1161,7 +1128,7 @@ public sealed class ToolResponseTests : IDisposable
         PatchValueTool tool = new(_store);
         return AssertInvalidNamespaceRejectedAsync(invalidNamespace => tool.PatchValueCoreAsync(
                 "key",
-                ParseJson("""[{ "op": "replace", "path": "/name", "value": "new" }]"""),
+                Patch(Replace("/name", "\"new\"")),
                 invalidNamespace,
                 CancellationToken.None
             )
@@ -1274,6 +1241,36 @@ public sealed class ToolResponseTests : IDisposable
         var structuredContent = result.StructuredContent
                              ?? throw new InvalidOperationException("Expected structured content.");
         Assert.Equal(structuredContent.GetRawText(), GetTextContent(result));
+    }
+
+    private static ReplaceOperation Replace(string path, string valueJson)
+    {
+        return PatchOperation.Replace(path, ParseNode(valueJson));
+    }
+
+    private static TestOperation Test(string path, string valueJson)
+    {
+        return PatchOperation.Test(path, ParseNode(valueJson));
+    }
+
+    private static CopyOperation Copy(string from, string path)
+    {
+        return PatchOperation.Copy(from, path);
+    }
+
+    private static MoveOperation Move(string from, string path)
+    {
+        return PatchOperation.Move(from, path);
+    }
+
+    private static PatchDocument Patch(params PatchOperation[] operations)
+    {
+        return new PatchDocument(operations);
+    }
+
+    private static JsonNode? ParseNode(string json)
+    {
+        return JsonNode.Parse(json);
     }
 
     private sealed class WriteLockHandle(SqliteConnection connection, SqliteTransaction transaction) : IAsyncDisposable
@@ -1410,7 +1407,7 @@ internal static class ToolResponseTestExtensions
     public static async Task<PatchValueResultData> PatchValueCoreAsync(
         this PatchValueTool tool,
         string key,
-        JsonElement patch,
+        PatchDocument patch,
         string? @namespace = null,
         CancellationToken cancellationToken = default
     )

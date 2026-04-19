@@ -1,14 +1,18 @@
 using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using StatePocket.JsonPatch;
 using StatePocket.Tools;
 
 namespace StatePocket.Hosting;
 
 internal static class StatePocketMcpToolFactory
 {
+    private static readonly JsonSerializerOptions SerializerOptions = CreateSerializerOptions();
+
     public static McpServerTool CreateSetValue(IServiceProvider services)
     {
         return Create(SetValueAsync, services, static schema => OverrideAnyJsonProperty(schema, "value"));
@@ -21,7 +25,7 @@ internal static class StatePocketMcpToolFactory
 
     public static McpServerTool CreatePatchValue(IServiceProvider services)
     {
-        return Create(PatchValueAsync, services, static schema => OverrideArrayProperty(schema, "patch"));
+        return Create(PatchValueAsync, services, static schema => OverridePatchSchema(schema, "patch"));
     }
 
     private static McpServerTool Create(
@@ -36,7 +40,8 @@ internal static class StatePocketMcpToolFactory
             method,
             new McpServerToolCreateOptions
             {
-                Services = services
+                Services = services,
+                SerializerOptions = SerializerOptions
             }
         );
         return inputSchemaOverride is null
@@ -65,7 +70,7 @@ internal static class StatePocketMcpToolFactory
         );
     }
 
-    private static JsonElement OverrideArrayProperty(JsonElement inputSchema, string propertyName)
+    private static JsonElement OverridePatchSchema(JsonElement inputSchema, string propertyName)
     {
         return OverridePropertySchema(
             inputSchema,
@@ -74,9 +79,118 @@ internal static class StatePocketMcpToolFactory
             {
                 var schema = CloneObject(existing);
                 schema["type"] = JsonValue.Create("array");
+                schema["items"] = CreatePatchItemSchema();
                 return schema;
             }
         );
+    }
+
+    private static JsonObject CreateAnyJsonSchema(JsonObject? existing)
+    {
+        var schema = CloneObject(existing);
+        schema["type"] = new JsonArray(
+            JsonValue.Create("object"),
+            JsonValue.Create("array"),
+            JsonValue.Create("string"),
+            JsonValue.Create("number"),
+            JsonValue.Create("boolean"),
+            JsonValue.Create("null")
+        );
+        return schema;
+    }
+
+    private static JsonObject CreatePatchItemSchema()
+    {
+        return new JsonObject
+        {
+            ["oneOf"] = new JsonArray(
+                CreateOperationSchema("add", true, false),
+                CreateOperationSchema("remove", false, false),
+                CreateOperationSchema("replace", true, false),
+                CreateOperationSchema("move", false, true),
+                CreateOperationSchema("copy", false, true),
+                CreateOperationSchema("test", true, false)
+            )
+        };
+    }
+
+    private static JsonObject CreateOperationSchema(string operation, bool requiresValue, bool requiresFrom)
+    {
+        return new JsonObject
+        {
+            ["type"] = JsonValue.Create("object"),
+            ["properties"] = CreatePatchOperationProperties(operation, requiresValue, requiresFrom),
+            ["required"] = CreateRequiredProperties(requiresValue, requiresFrom)
+        };
+    }
+
+    private static JsonObject CreatePatchOperationProperties(string operation, bool requiresValue, bool requiresFrom)
+    {
+        var opPropertyName = ToCamelCase(nameof(PatchOperation.Op));
+        var pathPropertyName = ToCamelCase(nameof(PatchOperation.Path));
+        var valuePropertyName = ToCamelCase(nameof(ValueOperation.Value));
+        var fromPropertyName = ToCamelCase(nameof(FromOperation.From));
+        JsonObject properties = new()
+        {
+            [opPropertyName] = new JsonObject
+            {
+                ["type"] = JsonValue.Create("string"),
+                ["const"] = JsonValue.Create(operation)
+            },
+            [pathPropertyName] = new JsonObject
+            {
+                ["type"] = JsonValue.Create("string")
+            }
+        };
+        if (requiresValue)
+        {
+            properties[valuePropertyName] = CreateAnyJsonSchema(null);
+        }
+        if (requiresFrom)
+        {
+            properties[fromPropertyName] = new JsonObject
+            {
+                ["type"] = JsonValue.Create("string")
+            };
+        }
+        return properties;
+    }
+
+    private static JsonArray CreateRequiredProperties(bool requiresValue, bool requiresFrom)
+    {
+        return (requiresValue, requiresFrom) switch
+        {
+            (true, false) => new JsonArray(
+                JsonValue.Create(ToCamelCase(nameof(PatchOperation.Op))),
+                JsonValue.Create(ToCamelCase(nameof(PatchOperation.Path))),
+                JsonValue.Create(ToCamelCase(nameof(ValueOperation.Value)))
+            ),
+            (false, true) => new JsonArray(
+                JsonValue.Create(ToCamelCase(nameof(PatchOperation.Op))),
+                JsonValue.Create(ToCamelCase(nameof(PatchOperation.Path))),
+                JsonValue.Create(ToCamelCase(nameof(FromOperation.From)))
+            ),
+            _ => new JsonArray(
+                JsonValue.Create(ToCamelCase(nameof(PatchOperation.Op))),
+                JsonValue.Create(ToCamelCase(nameof(PatchOperation.Path)))
+            )
+        };
+    }
+
+    private static string ToCamelCase(string value)
+    {
+        return string.IsNullOrEmpty(value)
+          ? value
+          : string.Create(
+                value.Length,
+                value,
+                static (buffer, source) =>
+                {
+                    buffer[0] = char.ToLowerInvariant(source[0]);
+                    source.AsSpan(1)
+                          .CopyTo(buffer[1..]);
+                }
+            );
     }
 
     private static JsonElement OverridePropertySchema(
@@ -102,6 +216,16 @@ internal static class StatePocketMcpToolFactory
           ? []
           : schema.DeepClone()
                   .AsObject();
+    }
+
+    private static JsonSerializerOptions CreateSerializerOptions()
+    {
+        JsonSerializerOptions options = new(McpJsonUtilities.DefaultOptions)
+        {
+            AllowDuplicateProperties = false
+        };
+        options.TypeInfoResolverChain.Insert(0, JsonPatchJsonContext.Default);
+        return options;
     }
 
     [McpServerTool(Name = SetValueTool.ToolName)]
@@ -176,7 +300,7 @@ internal static class StatePocketMcpToolFactory
     private static Task<CallToolResult> PatchValueAsync(
         PatchValueTool tool,
         [Description("Key to patch.")] string key,
-        [Description("JSON Patch document to apply.")] JsonElement patch,
+        [Description("JSON Patch document to apply.")] PatchDocument patch,
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
         CancellationToken cancellationToken = default
     )

@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Server;
 using StatePocket.Hosting;
+using StatePocket.JsonPatch;
 using StatePocket.Storage;
 using StatePocket.Tools;
 
@@ -43,7 +44,7 @@ public sealed class StatePocketMcpToolFactoryTests
     }
 
     [Fact]
-    public void PatchValue_OverridesPatchSchemaToExplicitArray()
+    public void PatchValue_ExposesTypedPatchSchema()
     {
         var tool = StatePocketMcpToolFactory.CreatePatchValue(_services);
         var propertySchema = GetPropertySchema(tool, "patch");
@@ -57,6 +58,59 @@ public sealed class StatePocketMcpToolFactoryTests
             propertySchema.GetProperty("type")
                           .GetString()
         );
+        var itemSchemas = propertySchema.GetProperty("items")
+                                        .GetProperty("oneOf")
+                                        .EnumerateArray()
+                                        .ToArray();
+        Assert.Equal(6, itemSchemas.Length);
+        var replaceSchema = Assert.Single(
+            itemSchemas,
+            static schema => schema.GetProperty("properties")
+                                   .GetProperty("op")
+                                   .GetProperty("const")
+                                   .GetString()
+                          == "replace"
+        );
+        var moveSchema = Assert.Single(
+            itemSchemas,
+            static schema => schema.GetProperty("properties")
+                                   .GetProperty("op")
+                                   .GetProperty("const")
+                                   .GetString()
+                          == "move"
+        );
+        var replaceProperties = replaceSchema.GetProperty("properties");
+        var moveProperties = moveSchema.GetProperty("properties");
+        Assert.Equal(
+            "string",
+            replaceProperties.GetProperty("op")
+                             .GetProperty("type")
+                             .GetString()
+        );
+        Assert.Equal(
+            [
+                "object",
+                "array",
+                "string",
+                "number",
+                "boolean",
+                "null"
+            ],
+            [
+                .. replaceProperties.GetProperty("value")
+                                    .GetProperty("type")
+                                    .EnumerateArray()
+                                    .Select(static value => value.GetString()!)
+            ]
+        );
+        Assert.Equal(
+            "string",
+            moveProperties.GetProperty("from")
+                          .GetProperty("type")
+                          .GetString()
+        );
+        Assert.False(replaceSchema.TryGetProperty("additionalProperties", out _));
+        Assert.False(moveSchema.TryGetProperty("additionalProperties", out _));
     }
 
     [Fact]
@@ -159,7 +213,7 @@ public sealed class StatePocketMcpToolFactoryTests
         public Task<bool> PatchValueAsync(
             string? @namespace,
             string key,
-            JsonElement patch,
+            PatchDocument patch,
             CancellationToken cancellationToken
         )
         {

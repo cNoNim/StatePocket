@@ -1,4 +1,5 @@
 using System.Text.Json;
+using StatePocket.JsonPatch;
 
 namespace StatePocket.Storage;
 
@@ -46,7 +47,7 @@ internal interface IKvStore
     public Task<bool> PatchValueAsync(
         string? @namespace,
         string key,
-        JsonElement patch,
+        PatchDocument patch,
         CancellationToken cancellationToken
     );
 

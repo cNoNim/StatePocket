@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using StatePocket.Cli;
 using StatePocket.Configuration;
+using StatePocket.JsonPatch;
 using StatePocket.Storage;
 
 namespace StatePocket.Tests.Cli;
@@ -339,7 +340,7 @@ public sealed class CliApplicationTests
         public Task<bool> PatchValueAsync(
             string? @namespace,
             string key,
-            JsonElement patch,
+            PatchDocument patch,
             CancellationToken cancellationToken
         )
         {
@@ -420,7 +421,7 @@ public sealed class CliApplicationTests
         public Task<bool> PatchValueAsync(
             string? @namespace,
             string key,
-            JsonElement patch,
+            PatchDocument patch,
             CancellationToken cancellationToken
         )
         {
