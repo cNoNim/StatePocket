@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
@@ -20,23 +19,14 @@ internal sealed class GetValueTool(IKvStore kvStore)
         [Description(
             "Optional path to project part of the stored JSON value. Use JSON Pointer syntax starting with '/', for example '/profile/name' or '/items/0'. Omit to return the whole value."
         )]
-        string? path = null,
+        JsonPointer? path = null,
         CancellationToken cancellationToken = default
     )
     {
         var normalizedNamespace = ToolResultFactory.NormalizeNamespace(@namespace);
-        JsonPointer? pointer;
-        try
-        {
-            pointer = path is null ? null : new JsonPointer(path);
-        }
-        catch (JsonPointerException exception)
-        {
-            throw new McpException(exception.Message, exception);
-        }
         var value = await kvStore.GetValueAsync(normalizedNamespace, key, cancellationToken)
                                  .ConfigureAwait(false);
-        var projectedValue = GetValuesTool.ProjectValue(value, pointer);
+        var projectedValue = GetValuesTool.ProjectValue(value, path);
         var result = new GetValueResultData
         {
             Namespace = normalizedNamespace,

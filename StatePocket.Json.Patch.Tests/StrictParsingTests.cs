@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using StatePocket.Json.Patch.Exceptions;
 using StatePocket.Json.Pointer;
 
 namespace StatePocket.Json.Patch.Tests;

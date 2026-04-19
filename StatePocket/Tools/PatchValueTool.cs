@@ -4,7 +4,6 @@ using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
 using StatePocket.Json.Patch;
-using StatePocket.Json.Patch.Exceptions;
 using StatePocket.Storage;
 
 namespace StatePocket.Tools;

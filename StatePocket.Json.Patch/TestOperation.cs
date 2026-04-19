@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using StatePocket.Json.Patch.Exceptions;
+using StatePocket.Json.Pointer;
 
 namespace StatePocket.Json.Patch;
 
@@ -10,7 +10,7 @@ public sealed class TestOperation : ValueOperation
     public TestOperation() {}
 
     [SetsRequiredMembers]
-    internal TestOperation(string path, JsonNode? value) : base(path, value) {}
+    internal TestOperation(JsonPointer path, JsonNode? value) : base(path, value) {}
 
     [JsonIgnore]
     public override JsonPatchOperationType Op => JsonPatchOperationType.Test;
@@ -22,7 +22,7 @@ public sealed class TestOperation : ValueOperation
 
     internal override JsonNode? ApplyTo(JsonNode? document)
     {
-        var actual = GetTargetNode(document, ParsePath(Path));
+        var actual = GetTargetNode(document, Path);
         return JsonNode.DeepEquals(actual, GetValueNode())
           ? document
           : throw new JsonPatchException($"Test operation failed at path '{Path}'.");

@@ -45,6 +45,11 @@ public sealed class ToolResponseTests : IDisposable
         File.Delete(_databasePath);
     }
 
+    private static JsonPointer? ParsePointer(string? path)
+    {
+        return path is null ? null : new JsonPointer(path);
+    }
+
     [Fact]
     public async Task QueryValuesCore_PreservesExplicitJsonNullWhenEqualsArgumentIsPresent()
     {
@@ -209,24 +214,18 @@ public sealed class ToolResponseTests : IDisposable
         var callToolResult = await getTool.GetValueAsync(
             "profile",
             "codex",
-            "/nested/value",
+            ParsePointer("/nested/value"),
             CancellationToken.None
         );
         AssertTextMatchesStructuredContent(callToolResult);
     }
 
     [Fact]
-    public async Task GetValueCore_ThrowsMcpExceptionWhenPointerIsMalformed()
+    public void GetValueCore_Helper_ThrowsJsonPointerExceptionWhenPointerIsMalformed()
     {
         GetValueTool tool = new(_store);
-        var exception = await Assert.ThrowsAsync<McpException>(() =>
-            tool.GetValueCoreAsync(
-                "profile",
-                "codex",
-                "nested/value",
-                CancellationToken.None
-            )
-        );
+        _ = tool;
+        var exception = Assert.Throws<JsonPointerException>(static () => ParsePointer("nested/value"));
         Assert.Equal("Invalid JSON Pointer path 'nested/value'.", exception.Message);
     }
 
@@ -393,7 +392,7 @@ public sealed class ToolResponseTests : IDisposable
         var result = await getValuesTool.GetValuesAsync(
             ["one", "two", "missing"],
             "codex",
-            "/profile/name",
+            ParsePointer("/profile/name"),
             CancellationToken.None
         );
         var data = DeserializeStructuredContent<GetValuesResultData>(result);
@@ -500,17 +499,11 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task GetValuesCore_ThrowsMcpExceptionWhenPointerIsMalformed()
+    public void GetValuesCore_Helper_ThrowsJsonPointerExceptionWhenPointerIsMalformed()
     {
         GetValuesTool tool = new(_store);
-        var exception = await Assert.ThrowsAsync<McpException>(() =>
-            tool.GetValuesCoreAsync(
-                ["one"],
-                "codex",
-                "profile/name",
-                CancellationToken.None
-            )
-        );
+        _ = tool;
+        var exception = Assert.Throws<JsonPointerException>(static () => ParsePointer("profile/name"));
         Assert.Equal("Invalid JSON Pointer path 'profile/name'.", exception.Message);
     }
 
@@ -545,7 +538,7 @@ public sealed class ToolResponseTests : IDisposable
             "*",
             "$.status",
             ParseJson("\"active\""),
-            "/profile/name",
+            ParsePointer("/profile/name"),
             cancellationToken: CancellationToken.None
         );
         var data = DeserializeStructuredContent<QueryValuesResultData>(result);
@@ -623,7 +616,7 @@ public sealed class ToolResponseTests : IDisposable
             "codex",
             "*",
             "$.status",
-            path: "/status",
+            path: ParsePointer("/status"),
             limit: 2,
             cancellationToken: CancellationToken.None
         );
@@ -635,7 +628,7 @@ public sealed class ToolResponseTests : IDisposable
             "codex",
             "*",
             "$.status",
-            path: "/status",
+            path: ParsePointer("/status"),
             limit: 2,
             cursor: firstPageData.NextCursor,
             cancellationToken: CancellationToken.None
@@ -818,19 +811,11 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task QueryValuesCore_ThrowsMcpExceptionWhenPointerIsMalformed()
+    public void QueryValuesCore_Helper_ThrowsJsonPointerExceptionWhenPointerIsMalformed()
     {
         QueryValuesTool tool = new(_store);
-        var exception = await Assert.ThrowsAsync<McpException>(() => tool.QueryValuesCoreAsync(
-                "codex",
-                "*",
-                null,
-                false,
-                null,
-                "profile/name",
-                CancellationToken.None
-            )
-        );
+        _ = tool;
+        var exception = Assert.Throws<JsonPointerException>(static () => ParsePointer("profile/name"));
         Assert.Equal("Invalid JSON Pointer path 'profile/name'.", exception.Message);
     }
 
@@ -1320,7 +1305,7 @@ internal static class ToolResponseTestExtensions
             await tool.GetValueAsync(
                            key,
                            @namespace,
-                           path,
+                           ParsePointer(path),
                            cancellationToken
                        )
                       .ConfigureAwait(false)
@@ -1339,7 +1324,7 @@ internal static class ToolResponseTestExtensions
             await tool.GetValuesAsync(
                            keys,
                            @namespace,
-                           path,
+                           ParsePointer(path),
                            cancellationToken
                        )
                       .ConfigureAwait(false)
@@ -1363,7 +1348,7 @@ internal static class ToolResponseTestExtensions
                            pattern,
                            query,
                            hasEqualsArgument && !equals.HasValue ? ParseJsonElement("null") : equals,
-                           path,
+                           ParsePointer(path),
                            null,
                            null,
                            null,
@@ -1481,5 +1466,10 @@ internal static class ToolResponseTestExtensions
     {
         using var document = JsonDocument.Parse(json);
         return document.RootElement.Clone();
+    }
+
+    private static JsonPointer? ParsePointer(string? path)
+    {
+        return path is null ? null : new JsonPointer(path);
     }
 }

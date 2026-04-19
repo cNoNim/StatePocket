@@ -63,6 +63,36 @@ public sealed class JsonPointerEvaluationTests
     }
 
     [Fact]
+    public void TryEvaluateParent_JsonElement_Succeeds()
+    {
+        JsonPointer pointer = new("/foo/1");
+        var document = ParseJson(RfcExampleJson);
+        var found = pointer.TryEvaluateParent(document, out var parent);
+        Assert.True(found);
+        Assert.Equal(JsonValueKind.Array, parent.ValueKind);
+        AssertJsonEqual("""["bar","baz"]""", parent.GetRawText());
+    }
+
+    [Fact]
+    public void EvaluateParent_JsonElement_AtRootChild_ReturnsDocument()
+    {
+        JsonPointer pointer = new("/foo");
+        var document = ParseJson(RfcExampleJson);
+        var parent = pointer.EvaluateParent(document);
+        Assert.Equal(JsonValueKind.Object, parent.ValueKind);
+        AssertJsonEqual(RfcExampleJson, parent.GetRawText());
+    }
+
+    [Fact]
+    public void EvaluateParent_RootJsonElement_Throws()
+    {
+        JsonPointer pointer = new("");
+        var document = ParseJson(RfcExampleJson);
+        var exception = Assert.Throws<JsonPointerException>(() => pointer.EvaluateParent(document));
+        Assert.Equal("Root JSON Pointer does not have a parent.", exception.Message);
+    }
+
+    [Fact]
     public void TryEvaluate_JsonNode_Succeeds()
     {
         JsonPointer pointer = new("/foo/1");
@@ -81,6 +111,36 @@ public sealed class JsonPointerEvaluationTests
         var value = pointer.Evaluate(document);
         Assert.NotNull(value);
         Assert.Equal("\"baz\"", value.ToJsonString());
+    }
+
+    [Fact]
+    public void TryEvaluateParent_JsonNode_Succeeds()
+    {
+        JsonPointer pointer = new("/foo/1");
+        var document = JsonNode.Parse(RfcExampleJson);
+        var found = pointer.TryEvaluateParent(document, out var parent);
+        Assert.True(found);
+        Assert.NotNull(parent);
+        Assert.Equal("""["bar","baz"]""", parent.ToJsonString());
+    }
+
+    [Fact]
+    public void EvaluateParent_JsonNode_AtRootChild_ReturnsDocument()
+    {
+        JsonPointer pointer = new("/foo");
+        var document = JsonNode.Parse(RfcExampleJson);
+        var parent = pointer.EvaluateParent(document);
+        Assert.NotNull(parent);
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(RfcExampleJson), parent));
+    }
+
+    [Fact]
+    public void EvaluateParent_RootJsonNode_Throws()
+    {
+        JsonPointer pointer = new("");
+        var document = JsonNode.Parse(RfcExampleJson);
+        var exception = Assert.Throws<JsonPointerException>(() => pointer.EvaluateParent(document));
+        Assert.Equal("Root JSON Pointer does not have a parent.", exception.Message);
     }
 
     private static JsonElement ParseJson(string json)

@@ -31,7 +31,7 @@ internal static class StatePocketMcpTools
         return new StatePocketMcpToolRegistration(
             GetValueTool.ToolName,
             static services => services.AddSingleton<GetValueTool>(),
-            static mcpServerBuilder => mcpServerBuilder.WithTools<GetValueTool>()
+            static mcpServerBuilder => mcpServerBuilder.Services.AddSingleton(StatePocketMcpToolFactory.CreateGetValue)
         );
     }
 
@@ -40,7 +40,7 @@ internal static class StatePocketMcpTools
         return new StatePocketMcpToolRegistration(
             GetValuesTool.ToolName,
             static services => services.AddSingleton<GetValuesTool>(),
-            static mcpServerBuilder => mcpServerBuilder.WithTools<GetValuesTool>()
+            static mcpServerBuilder => mcpServerBuilder.Services.AddSingleton(StatePocketMcpToolFactory.CreateGetValues)
         );
     }
 

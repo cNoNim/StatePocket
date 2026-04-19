@@ -1,40 +1,53 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 namespace StatePocket.Json.Pointer;
 
+[TypeConverter(typeof(JsonPointerTypeConverter))]
+[JsonConverter(typeof(JsonPointerJsonConverter))]
 public sealed class JsonPointer
 {
     private readonly string[] _segments;
-
-    public JsonPointer(string path)
-    {
-        ArgumentNullException.ThrowIfNull(path);
-        _segments = ParseSegments(path);
-    }
-
+    public JsonPointer(string path) : this(ParseSegments(path ?? throw new ArgumentNullException(nameof(path)))) {}
+    private JsonPointer(string[] segments) => _segments = segments;
     public bool IsRoot => _segments.Length == 0;
+    public bool HasSegments => _segments.Length != 0;
     public string? LastSegment => _segments.Length == 0 ? null : _segments[^1];
     public ReadOnlyCollection<string> Segments => Array.AsReadOnly(_segments);
+
+    public static JsonPointer Parse(string path)
+    {
+        return new JsonPointer(path);
+    }
+
+    public static bool TryParse(string? path, [NotNullWhen(true)] out JsonPointer? result)
+    {
+        if (path is null)
+        {
+            result = null;
+            return false;
+        }
+        if (TryParseSegments(path, out var segments))
+        {
+            result = new JsonPointer(segments);
+            return true;
+        }
+        result = null;
+        return false;
+    }
 
     public bool IsPrefixOf(JsonPointer other)
     {
         ArgumentNullException.ThrowIfNull(other);
-        if (_segments.Length > other._segments.Length)
-        {
-            return false;
-        }
-        for (var index = 0; index < _segments.Length; index++)
-        {
-            if (!string.Equals(_segments[index], other._segments[index], StringComparison.Ordinal))
-            {
-                return false;
-            }
-        }
-        return true;
+        return _segments.Length <= other._segments.Length
+            && !_segments.Where((t, index) => !string.Equals(t, other._segments[index], StringComparison.Ordinal))
+                         .Any();
     }
 
     public JsonElement Evaluate(JsonElement document)
@@ -47,16 +60,30 @@ public sealed class JsonPointer
     public bool TryEvaluate(JsonElement document, out JsonElement value)
     {
         var current = document;
-        foreach (var segment in _segments)
+        if (_segments.Any(segment => !TryGetChild(current, segment, out current)))
         {
-            if (!TryGetChild(current, segment, out current))
-            {
-                value = default;
-                return false;
-            }
+            value = default;
+            return false;
         }
         value = current;
         return true;
+    }
+
+    public JsonElement EvaluateParent(JsonElement document)
+    {
+        return TryEvaluateParent(document, out var value) ? value :
+            IsRoot ? throw new JsonPointerException("Root JSON Pointer does not have a parent.") :
+            throw new JsonPointerException($"Parent path for '{this}' does not exist.");
+    }
+
+    public bool TryEvaluateParent(JsonElement document, out JsonElement value)
+    {
+        if (!IsRoot)
+        {
+            return TryEvaluate(document, _segments.Length - 1, out value);
+        }
+        value = default;
+        return false;
     }
 
     public JsonNode? Evaluate(JsonNode? document)
@@ -69,16 +96,30 @@ public sealed class JsonPointer
     public bool TryEvaluate(JsonNode? document, out JsonNode? value)
     {
         var current = document;
-        foreach (var segment in _segments)
+        if (_segments.Any(segment => !TryGetChild(current, segment, out current)))
         {
-            if (!TryGetChild(current, segment, out current))
-            {
-                value = null;
-                return false;
-            }
+            value = null;
+            return false;
         }
         value = current;
         return true;
+    }
+
+    public JsonNode? EvaluateParent(JsonNode? document)
+    {
+        return TryEvaluateParent(document, out var value) ? value :
+            IsRoot ? throw new JsonPointerException("Root JSON Pointer does not have a parent.") :
+            throw new JsonPointerException($"Parent path for '{this}' does not exist.");
+    }
+
+    public bool TryEvaluateParent(JsonNode? document, out JsonNode? value)
+    {
+        if (!IsRoot)
+        {
+            return TryEvaluate(document, _segments.Length - 1, out value);
+        }
+        value = null;
+        return false;
     }
 
     public override string ToString()
@@ -86,17 +127,37 @@ public sealed class JsonPointer
         return IsRoot ? "" : $"/{string.Join("/", _segments.Select(EscapeSegment))}";
     }
 
+    public bool TryGetLastSegment([NotNullWhen(true)] out string? segment)
+    {
+        if (_segments.Length == 0)
+        {
+            segment = null;
+            return false;
+        }
+        segment = _segments[^1];
+        return true;
+    }
+
     private static string[] ParseSegments(string path)
+    {
+        return TryParseSegments(path, out var segments)
+          ? segments
+          : throw new JsonPointerException($"Invalid JSON Pointer path '{path}'.");
+    }
+
+    private static bool TryParseSegments(string path, [NotNullWhen(true)] out string[]? segments)
     {
         if (path.Length == 0)
         {
-            return [];
+            segments = [];
+            return true;
         }
         if (path[0] != '/')
         {
-            throw new JsonPointerException($"Invalid JSON Pointer path '{path}'.");
+            segments = null;
+            return false;
         }
-        List<string> segments = [];
+        List<string> parsedSegments = [];
         StringBuilder currentSegment = new(path.Length);
         for (var index = 1; index < path.Length; index++)
         {
@@ -104,31 +165,37 @@ public sealed class JsonPointer
             switch (current)
             {
                 case '/':
-                    segments.Add(currentSegment.ToString());
+                    parsedSegments.Add(currentSegment.ToString());
                     currentSegment.Clear();
                     continue;
                 case '~':
                     index++;
                     if (index >= path.Length)
                     {
-                        throw new JsonPointerException($"Invalid JSON Pointer path '{path}'.");
+                        segments = null;
+                        return false;
                     }
-                    currentSegment.Append(
-                        path[index] switch
-                        {
-                            '0' => '~',
-                            '1' => '/',
-                            _ => throw new JsonPointerException($"Invalid JSON Pointer path '{path}'.")
-                        }
-                    );
+                    switch (path[index])
+                    {
+                        case '0':
+                            currentSegment.Append('~');
+                            break;
+                        case '1':
+                            currentSegment.Append('/');
+                            break;
+                        default:
+                            segments = null;
+                            return false;
+                    }
                     continue;
                 default:
                     currentSegment.Append(current);
                     break;
             }
         }
-        segments.Add(currentSegment.ToString());
-        return [.. segments];
+        parsedSegments.Add(currentSegment.ToString());
+        segments = [.. parsedSegments];
+        return true;
     }
 
     private static string EscapeSegment(string segment)
@@ -145,12 +212,8 @@ public sealed class JsonPointer
             case JsonValueKind.Object when current.TryGetProperty(segment, out child):
                 return true;
             case JsonValueKind.Array:
-                if (!TryParseArrayIndex(segment, out var index))
-                {
-                    child = default;
-                    return false;
-                }
-                if (index < 0
+                if (!TryParseArrayIndex(segment, out var index)
+                 || index < 0
                  || index >= current.GetArrayLength())
                 {
                     child = default;
@@ -171,12 +234,8 @@ public sealed class JsonPointer
             case JsonObject jsonObject:
                 return jsonObject.TryGetPropertyValue(segment, out child);
             case JsonArray jsonArray:
-                if (!TryParseArrayIndex(segment, out var index))
-                {
-                    child = null;
-                    return false;
-                }
-                if (index < 0
+                if (!TryParseArrayIndex(segment, out var index)
+                 || index < 0
                  || index >= jsonArray.Count)
                 {
                     child = null;
@@ -202,18 +261,11 @@ public sealed class JsonPointer
             index = 0;
             return true;
         }
-        if (segment[0] == '0')
+        if (segment[0] == '0'
+         || segment.Any(static character => !char.IsAsciiDigit(character)))
         {
             index = 0;
             return false;
-        }
-        foreach (var character in segment)
-        {
-            if (!char.IsAsciiDigit(character))
-            {
-                index = 0;
-                return false;
-            }
         }
         return int.TryParse(
             segment,
@@ -221,5 +273,37 @@ public sealed class JsonPointer
             CultureInfo.InvariantCulture,
             out index
         );
+    }
+
+    private bool TryEvaluate(JsonElement document, int segmentCount, out JsonElement value)
+    {
+        var current = document;
+        for (var index = 0; index < segmentCount; index++)
+        {
+            if (TryGetChild(current, _segments[index], out current))
+            {
+                continue;
+            }
+            value = default;
+            return false;
+        }
+        value = current;
+        return true;
+    }
+
+    private bool TryEvaluate(JsonNode? document, int segmentCount, out JsonNode? value)
+    {
+        var current = document;
+        for (var index = 0; index < segmentCount; index++)
+        {
+            if (TryGetChild(current, _segments[index], out current))
+            {
+                continue;
+            }
+            value = null;
+            return false;
+        }
+        value = current;
+        return true;
     }
 }

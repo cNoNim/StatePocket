@@ -1,5 +1,7 @@
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
 
 namespace StatePocket.Hosting;
 
@@ -18,16 +20,47 @@ internal static class StatePocketMcpRegistration
     {
         ArgumentNullException.ThrowIfNull(services);
         return services.AddMcpServer(static options =>
+                            {
+                                options.ServerInfo = new Implementation
+                                {
+                                    Name = nameof(StatePocket),
+                                    Version = typeof(StatePocketMcpHostFactory).Assembly.GetName()
+                                                                               .Version?.ToString()
+                                           ?? "0.0.0"
+                                };
+                            }
+                        )
+                       .WithRequestFilters(static filters =>
+                            filters.AddCallToolFilter(CreateJsonExceptionCallToolFilter)
+                        );
+    }
+
+    internal static McpRequestHandler<CallToolRequestParams, CallToolResult> CreateJsonExceptionCallToolFilter(
+        McpRequestHandler<CallToolRequestParams, CallToolResult> next
+    )
+    {
+        return async (request, cancellationToken) =>
+        {
+            try
             {
-                options.ServerInfo = new Implementation
+                return await next(request, cancellationToken)
+                   .ConfigureAwait(false);
+            }
+            catch (JsonException exception)
+            {
+                return new CallToolResult
                 {
-                    Name = nameof(StatePocket),
-                    Version = typeof(StatePocketMcpHostFactory).Assembly.GetName()
-                                                               .Version?.ToString()
-                           ?? "0.0.0"
+                    IsError = true,
+                    Content =
+                    [
+                        new TextContentBlock
+                        {
+                            Text = exception.Message
+                        }
+                    ]
                 };
             }
-        );
+        };
     }
 
     public static void AddToolServices(IServiceCollection services, IReadOnlyCollection<string> enabledTools)

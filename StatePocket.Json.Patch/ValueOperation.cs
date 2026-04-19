@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using StatePocket.Json.Pointer;
 
 namespace StatePocket.Json.Patch;
 
@@ -10,7 +11,7 @@ public abstract class ValueOperation : JsonPatchOperation
     protected ValueOperation() {}
 
     [SetsRequiredMembers]
-    protected ValueOperation(string path, JsonNode? value) : base(path) => Value = value;
+    protected ValueOperation(JsonPointer path, JsonNode? value) : base(path) => Value = value;
 
     [JsonPropertyName("value")]
     [JsonPropertyOrder(2)]

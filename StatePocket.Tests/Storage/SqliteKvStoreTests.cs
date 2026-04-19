@@ -4,7 +4,6 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Time.Testing;
 using StatePocket.Configuration;
 using StatePocket.Json.Patch;
-using StatePocket.Json.Patch.Exceptions;
 using StatePocket.Storage;
 
 namespace StatePocket.Tests.Storage;

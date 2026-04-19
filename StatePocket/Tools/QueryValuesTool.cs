@@ -32,7 +32,7 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         [Description(
             "Optional path to project part of each matched JSON value. Use JSON Pointer syntax starting with '/', for example '/profile/name' or '/items/0'. Omit to return whole values."
         )]
-        string? path = null,
+        JsonPointer? path = null,
         [Description(
             "Maximum number of matching values to return. Defaults to 50 and must be less than or equal to 100."
         )]
@@ -52,7 +52,7 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         {
             throw new McpException("equals requires query.");
         }
-        var (jsonPath, pointer) = ParseQueryAndPath(query, path);
+        var jsonPath = ParseQuery(query);
         try
         {
             var pageResult = await LoadMatchingValuesAsync(
@@ -63,7 +63,7 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
                     jsonPath,
                     hasEqualsArgument,
                     equals,
-                    pointer,
+                    path,
                     cancellationToken
                 )
                .ConfigureAwait(false);
@@ -81,21 +81,17 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         }
     }
 
-    private static (JsonPath? Query, JsonPointer? Pointer) ParseQueryAndPath(string? query, string? path)
+    private static JsonPath? ParseQuery(string? query)
     {
         try
         {
-            return (query is null ? null : new JsonPath(query), path is null ? null : new JsonPointer(path));
+            return query is null ? null : new JsonPath(query);
         }
         catch (ArgumentException exception)
         {
             throw new McpException(exception.Message, exception);
         }
         catch (JsonPathException exception)
-        {
-            throw new McpException(exception.Message, exception);
-        }
-        catch (JsonPointerException exception)
         {
             throw new McpException(exception.Message, exception);
         }

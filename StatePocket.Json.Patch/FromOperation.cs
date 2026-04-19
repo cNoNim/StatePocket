@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
+using StatePocket.Json.Pointer;
 
 namespace StatePocket.Json.Patch;
 
@@ -8,10 +9,10 @@ public abstract class FromOperation : JsonPatchOperation
     protected FromOperation() {}
 
     [SetsRequiredMembers]
-    protected FromOperation(string from, string path) : base(path) => From = from;
+    protected FromOperation(JsonPointer from, JsonPointer path) : base(path) => From = from;
 
     [JsonPropertyName("from")]
     [JsonPropertyOrder(2)]
     [JsonRequired]
-    public required string From { get; init; }
+    public required JsonPointer From { get; init; }
 }

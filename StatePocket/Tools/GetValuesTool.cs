@@ -22,7 +22,7 @@ internal sealed class GetValuesTool(IKvStore kvStore)
         [Description(
             "Optional path to project part of each stored JSON value. Use JSON Pointer syntax starting with '/', for example '/profile/name' or '/items/0'. Omit to return whole values."
         )]
-        string? path = null,
+        JsonPointer? path = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -41,21 +41,12 @@ internal sealed class GetValuesTool(IKvStore kvStore)
             );
         }
         var normalizedNamespace = ToolResultFactory.NormalizeNamespace(@namespace);
-        JsonPointer? pointer;
-        try
-        {
-            pointer = path is null ? null : new JsonPointer(path);
-        }
-        catch (JsonPointerException exception)
-        {
-            throw new McpException(exception.Message, exception);
-        }
         var storedValues = await kvStore.GetValuesAsync(normalizedNamespace, keys, cancellationToken)
                                         .ConfigureAwait(false);
         Dictionary<string, GetValuesEntryData> values = new(StringComparer.Ordinal);
         foreach (var key in keys)
         {
-            values[key] = ProjectValue(storedValues.GetValueOrDefault(key), pointer);
+            values[key] = ProjectValue(storedValues.GetValueOrDefault(key), path);
         }
         var result = new GetValuesResultData
         {

@@ -1,10 +1,12 @@
 using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.AI;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Json.Patch;
+using StatePocket.Json.Pointer;
 using StatePocket.Tools;
 
 namespace StatePocket.Hosting;
@@ -12,6 +14,17 @@ namespace StatePocket.Hosting;
 internal static class StatePocketMcpToolFactory
 {
     private static readonly JsonSerializerOptions SerializerOptions = CreateSerializerOptions();
+    private static readonly AIJsonSchemaCreateOptions SchemaCreateOptions = CreateSchemaCreateOptions();
+
+    public static McpServerTool CreateGetValue(IServiceProvider services)
+    {
+        return Create(GetValueAsync, services);
+    }
+
+    public static McpServerTool CreateGetValues(IServiceProvider services)
+    {
+        return Create(GetValuesAsync, services);
+    }
 
     public static McpServerTool CreateSetValue(IServiceProvider services)
     {
@@ -28,7 +41,7 @@ internal static class StatePocketMcpToolFactory
         return Create(PatchValueAsync, services, static schema => OverridePatchSchema(schema, "patch"));
     }
 
-    private static McpServerTool Create(
+    internal static McpServerTool Create(
         Delegate method,
         IServiceProvider services,
         Func<JsonElement, JsonElement>? inputSchemaOverride = null
@@ -41,7 +54,8 @@ internal static class StatePocketMcpToolFactory
             new McpServerToolCreateOptions
             {
                 Services = services,
-                SerializerOptions = SerializerOptions
+                SerializerOptions = SerializerOptions,
+                SchemaCreateOptions = SchemaCreateOptions
             }
         );
         return inputSchemaOverride is null
@@ -222,6 +236,15 @@ internal static class StatePocketMcpToolFactory
                   .AsObject();
     }
 
+    private static AIJsonSchemaCreateOptions CreateSchemaCreateOptions()
+    {
+        return new AIJsonSchemaCreateOptions
+        {
+            TransformSchemaNode = static (context, schema) =>
+                JsonPointerSchemaExtensions.TransformJsonPointerSchema(context.TypeInfo.Type, schema)
+        };
+    }
+
     private static JsonSerializerOptions CreateSerializerOptions()
     {
         JsonSerializerOptions options = new(McpJsonUtilities.DefaultOptions)
@@ -230,6 +253,50 @@ internal static class StatePocketMcpToolFactory
         };
         options.TypeInfoResolverChain.Insert(0, JsonPatchJsonContext.Default);
         return options;
+    }
+
+    [McpServerTool(Name = GetValueTool.ToolName, ReadOnly = true)]
+    [Description("Retrieves a single value by key from the selected namespace, with optional JSON Pointer projection.")]
+    private static Task<CallToolResult> GetValueAsync(
+        GetValueTool tool,
+        [Description("Key to retrieve.")] string key,
+        [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
+        [Description(
+            "Optional path to project part of the stored JSON value. Use JSON Pointer syntax starting with '/', for example '/profile/name' or '/items/0'. Omit to return the whole value."
+        )]
+        JsonPointer? path = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return tool.GetValueAsync(
+            key,
+            @namespace,
+            path,
+            cancellationToken
+        );
+    }
+
+    [McpServerTool(Name = GetValuesTool.ToolName, ReadOnly = true)]
+    [Description(
+        "Retrieves multiple values by key from the selected namespace, with optional JSON Pointer projection."
+    )]
+    private static Task<CallToolResult> GetValuesAsync(
+        GetValuesTool tool,
+        [Description("Keys to retrieve. Maximum 100 keys per request.")] string[] keys,
+        [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
+        [Description(
+            "Optional path to project part of each stored JSON value. Use JSON Pointer syntax starting with '/', for example '/profile/name' or '/items/0'. Omit to return whole values."
+        )]
+        JsonPointer? path = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return tool.GetValuesAsync(
+            keys,
+            @namespace,
+            path,
+            cancellationToken
+        );
     }
 
     [McpServerTool(Name = SetValueTool.ToolName)]
@@ -273,7 +340,7 @@ internal static class StatePocketMcpToolFactory
         [Description(
             "Optional path to project part of each matched JSON value. Use JSON Pointer syntax starting with '/', for example '/profile/name' or '/items/0'. Omit to return whole values."
         )]
-        string? path = null,
+        JsonPointer? path = null,
         [Description(
             "Maximum number of matching values to return. Defaults to 50 and must be less than or equal to 100."
         )]
