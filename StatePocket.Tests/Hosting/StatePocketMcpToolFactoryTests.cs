@@ -48,6 +48,20 @@ public sealed class StatePocketMcpToolFactoryTests
     }
 
     [Fact]
+    public void SetValue_ExposesCamelCaseTtlParameter()
+    {
+        var tool = CreateTool(SetValueTool.ToolName);
+        var properties = tool.ProtocolTool.InputSchema.GetProperty("properties");
+        var ttlPropertySchema = properties.GetProperty("ttlSeconds");
+        Assert.Equal(
+            "Optional TTL in seconds. Omit to store the value without expiration.",
+            ttlPropertySchema.GetProperty("description")
+                             .GetString()
+        );
+        Assert.False(properties.TryGetProperty("ttl_seconds", out _));
+    }
+
+    [Fact]
     public void PatchValue_ExposesTypedPatchSchema()
     {
         var tool = CreateTool(PatchValueTool.ToolName);

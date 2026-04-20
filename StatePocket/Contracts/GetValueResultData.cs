@@ -11,12 +11,12 @@ internal sealed record GetValueResultData
     public required string Key { get; init; }
     [JsonPropertyName("found")]
     public required bool Found { get; init; }
-    [JsonPropertyName("path_found")]
+    [JsonPropertyName("pathFound")]
     public required bool PathFound { get; init; }
     [JsonPropertyName("value")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public JsonElement? Value { get; init; }
-    [JsonPropertyName("expires_at")]
+    [JsonPropertyName("expiresAt")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ExpiresAt { get; init; }
 }

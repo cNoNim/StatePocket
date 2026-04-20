@@ -18,7 +18,7 @@ internal sealed class ListKeysTool(IKvStore kvStore)
         [Description("Maximum number of keys to return. Defaults to 50 and must be less than or equal to 100.")]
         int? limit = null,
         [Description(
-            "Optional cursor for pagination. Pass the `next_cursor` value from a previous response to continue."
+            "Optional cursor for pagination. Pass the `nextCursor` value from a previous response to continue."
         )]
         string? cursor = null,
         CancellationToken cancellationToken = default

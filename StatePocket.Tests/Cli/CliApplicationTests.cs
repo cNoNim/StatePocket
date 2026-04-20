@@ -61,6 +61,16 @@ public sealed class CliApplicationTests
                     .GetProperty("description")
                     .GetString()
         );
+        Assert.True(
+            document.RootElement.GetProperty("inputSchema")
+                    .GetProperty("properties")
+                    .TryGetProperty("ttlSeconds", out _)
+        );
+        Assert.False(
+            document.RootElement.GetProperty("inputSchema")
+                    .GetProperty("properties")
+                    .TryGetProperty("ttl_seconds", out _)
+        );
     }
 
     [Fact]

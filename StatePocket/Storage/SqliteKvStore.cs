@@ -29,10 +29,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
     {
         if (ttlSeconds < 0)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(ttlSeconds),
-                "ttl_seconds must be greater than or equal to 0."
-            );
+            throw new ArgumentOutOfRangeException(nameof(ttlSeconds), "ttlSeconds must be greater than or equal to 0.");
         }
         if (value.ValueKind == JsonValueKind.Undefined)
         {

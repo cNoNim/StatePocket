@@ -11,7 +11,7 @@ internal sealed record PatchValueResultData
     public required string Key { get; init; }
     [JsonPropertyName("value")]
     public required JsonElement Value { get; init; }
-    [JsonPropertyName("expires_at")]
+    [JsonPropertyName("expiresAt")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ExpiresAt { get; init; }
 }

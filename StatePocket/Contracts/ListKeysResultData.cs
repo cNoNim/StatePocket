@@ -8,7 +8,7 @@ internal sealed record ListKeysResultData
     public required string Namespace { get; init; }
     [JsonPropertyName("keys")]
     public required IReadOnlyList<string> Keys { get; init; }
-    [JsonPropertyName("next_cursor")]
+    [JsonPropertyName("nextCursor")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? NextCursor { get; init; }
 }

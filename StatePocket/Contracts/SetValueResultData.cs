@@ -8,7 +8,7 @@ internal sealed record SetValueResultData
     public required string Namespace { get; init; }
     [JsonPropertyName("key")]
     public required string Key { get; init; }
-    [JsonPropertyName("expires_at")]
+    [JsonPropertyName("expiresAt")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ExpiresAt { get; init; }
 }

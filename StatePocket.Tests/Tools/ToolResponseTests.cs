@@ -1080,7 +1080,7 @@ public sealed class ToolResponseTests : IDisposable
                 CancellationToken.None
             )
         );
-        Assert.Equal("ttl_seconds must be greater than or equal to 0. (Parameter 'ttlSeconds')", exception.Message);
+        Assert.Equal("ttlSeconds must be greater than or equal to 0. (Parameter 'ttlSeconds')", exception.Message);
     }
 
     [Fact]
@@ -1173,7 +1173,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public void GetValueResultData_UsesSnakeCaseJsonFieldNames()
+    public void GetValueResultData_UsesCamelCaseJsonFieldNames()
     {
         var json = JsonSerializer.SerializeToElement(
             new GetValueResultData
@@ -1186,13 +1186,13 @@ public sealed class ToolResponseTests : IDisposable
                 ExpiresAt = "2026-04-14T10:01:00.0000000Z"
             }
         );
-        Assert.True(json.TryGetProperty("path_found", out _));
-        Assert.True(json.TryGetProperty("expires_at", out _));
-        Assert.False(json.TryGetProperty("pathFound", out _));
+        Assert.True(json.TryGetProperty("pathFound", out _));
+        Assert.True(json.TryGetProperty("expiresAt", out _));
+        Assert.False(json.TryGetProperty("path_found", out _));
     }
 
     [Fact]
-    public void SetValueResultData_UsesSnakeCaseJsonFieldNames()
+    public void SetValueResultData_UsesCamelCaseJsonFieldNames()
     {
         var json = JsonSerializer.SerializeToElement(
             new SetValueResultData
@@ -1202,12 +1202,12 @@ public sealed class ToolResponseTests : IDisposable
                 ExpiresAt = "2026-04-14T10:01:00.0000000Z"
             }
         );
-        Assert.True(json.TryGetProperty("expires_at", out _));
-        Assert.False(json.TryGetProperty("expiresAt", out _));
+        Assert.True(json.TryGetProperty("expiresAt", out _));
+        Assert.False(json.TryGetProperty("expires_at", out _));
     }
 
     [Fact]
-    public void PatchValueResultData_UsesSnakeCaseJsonFieldNames()
+    public void PatchValueResultData_UsesCamelCaseJsonFieldNames()
     {
         var json = JsonSerializer.SerializeToElement(
             new PatchValueResultData
@@ -1218,12 +1218,12 @@ public sealed class ToolResponseTests : IDisposable
                 ExpiresAt = "2026-04-14T10:01:00.0000000Z"
             }
         );
-        Assert.True(json.TryGetProperty("expires_at", out _));
-        Assert.False(json.TryGetProperty("expiresAt", out _));
+        Assert.True(json.TryGetProperty("expiresAt", out _));
+        Assert.False(json.TryGetProperty("expires_at", out _));
     }
 
     [Fact]
-    public void GetValuesEntryData_UsesSnakeCaseJsonFieldNames()
+    public void GetValuesEntryData_UsesCamelCaseJsonFieldNames()
     {
         var json = JsonSerializer.SerializeToElement(
             new GetValuesEntryData
@@ -1234,9 +1234,68 @@ public sealed class ToolResponseTests : IDisposable
                 ExpiresAt = "2026-04-14T10:01:00.0000000Z"
             }
         );
-        Assert.True(json.TryGetProperty("path_found", out _));
-        Assert.True(json.TryGetProperty("expires_at", out _));
-        Assert.False(json.TryGetProperty("pathFound", out _));
+        Assert.True(json.TryGetProperty("pathFound", out _));
+        Assert.True(json.TryGetProperty("expiresAt", out _));
+        Assert.False(json.TryGetProperty("path_found", out _));
+    }
+
+    [Fact]
+    public void GetValuesResultData_UsesCamelCaseJsonFieldNames()
+    {
+        var json = JsonSerializer.SerializeToElement(
+            new GetValuesResultData
+            {
+                Namespace = "codex",
+                Values = new Dictionary<string, GetValuesEntryData>(StringComparer.Ordinal),
+                NextCursor = "cursor-1"
+            }
+        );
+        Assert.True(json.TryGetProperty("nextCursor", out _));
+        Assert.False(json.TryGetProperty("next_cursor", out _));
+    }
+
+    [Fact]
+    public void QueryValuesResultData_UsesCamelCaseJsonFieldNames()
+    {
+        var json = JsonSerializer.SerializeToElement(
+            new QueryValuesResultData
+            {
+                Namespace = "codex",
+                Values = new Dictionary<string, GetValuesEntryData>(StringComparer.Ordinal),
+                NextCursor = "cursor-1"
+            }
+        );
+        Assert.True(json.TryGetProperty("nextCursor", out _));
+        Assert.False(json.TryGetProperty("next_cursor", out _));
+    }
+
+    [Fact]
+    public void ListKeysResultData_UsesCamelCaseJsonFieldNames()
+    {
+        var json = JsonSerializer.SerializeToElement(
+            new ListKeysResultData
+            {
+                Namespace = "codex",
+                Keys = ["key"],
+                NextCursor = "cursor-1"
+            }
+        );
+        Assert.True(json.TryGetProperty("nextCursor", out _));
+        Assert.False(json.TryGetProperty("next_cursor", out _));
+    }
+
+    [Fact]
+    public void ListNamespacesResultData_UsesCamelCaseJsonFieldNames()
+    {
+        var json = JsonSerializer.SerializeToElement(
+            new ListNamespacesResultData
+            {
+                Namespaces = ["codex"],
+                NextCursor = "cursor-1"
+            }
+        );
+        Assert.True(json.TryGetProperty("nextCursor", out _));
+        Assert.False(json.TryGetProperty("next_cursor", out _));
     }
 
     private static JsonElement ParseJson(string json)
@@ -1508,7 +1567,7 @@ internal static class ToolResponseTestExtensions
                                           .GetString()
                       ?? throw new InvalidOperationException("Expected namespace.");
         var nextCursor =
-            structuredContent.TryGetProperty("next_cursor", out var nextCursorElement)
+            structuredContent.TryGetProperty("nextCursor", out var nextCursorElement)
          && nextCursorElement.ValueKind != JsonValueKind.Null
               ? nextCursorElement.GetString()
               : null;
@@ -1521,10 +1580,10 @@ internal static class ToolResponseTestExtensions
             {
                 Found = entry.GetProperty("found")
                              .GetBoolean(),
-                PathFound = entry.GetProperty("path_found")
+                PathFound = entry.GetProperty("pathFound")
                                  .GetBoolean(),
                 Value = entry.TryGetProperty("value", out var valueElement) ? valueElement.Clone() : null,
-                ExpiresAt = entry.TryGetProperty("expires_at", out var expiresAtElement)
+                ExpiresAt = entry.TryGetProperty("expiresAt", out var expiresAtElement)
                          && expiresAtElement.ValueKind != JsonValueKind.Null
                   ? expiresAtElement.GetString()
                   : null

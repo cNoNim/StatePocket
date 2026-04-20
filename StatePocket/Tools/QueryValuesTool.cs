@@ -38,7 +38,7 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         )]
         int? limit = null,
         [Description(
-            "Optional opaque cursor for pagination. Pass the `next_cursor` value from a previous response to continue scanning after the last emitted match. Because filtering is applied while scanning, a follow-up request may return no matches even when `next_cursor` was present."
+            "Optional opaque cursor for pagination. Pass the `nextCursor` value from a previous response to continue scanning after the last emitted match. Because filtering is applied while scanning, a follow-up request may return no matches even when `nextCursor` was present."
         )]
         string? cursor = null,
         RequestContext<CallToolRequestParams>? requestContext = null,

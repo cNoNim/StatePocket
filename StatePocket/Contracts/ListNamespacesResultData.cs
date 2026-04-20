@@ -6,7 +6,7 @@ internal sealed record ListNamespacesResultData
 {
     [JsonPropertyName("namespaces")]
     public required IReadOnlyList<string> Namespaces { get; init; }
-    [JsonPropertyName("next_cursor")]
+    [JsonPropertyName("nextCursor")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? NextCursor { get; init; }
 }
