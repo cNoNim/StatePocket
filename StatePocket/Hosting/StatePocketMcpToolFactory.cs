@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
+using StatePocket.Contracts;
 using StatePocket.Json.Patch;
 using StatePocket.Json.Pointer;
 using StatePocket.Tools;
@@ -31,9 +32,10 @@ internal static class StatePocketMcpToolFactory
             {
                 Services = services,
                 SerializerOptions = SerializerOptions,
-                SchemaCreateOptions = CreateSchemaCreateOptions(method)
+                SchemaCreateOptions = CreateSchemaCreateOptions()
             }
         );
+        ApplyToolInputSchemaOverrides(tool, method);
         return tool;
     }
 
@@ -227,17 +229,8 @@ internal static class StatePocketMcpToolFactory
         };
     }
 
-    private static JsonNode TransformToolInputRootSchemaNode(
-        AIJsonSchemaTransformContext context,
-        JsonNode schema,
-        string toolName
-    )
+    private static JsonObject ApplyToolInputRootSchemaOverrides(JsonObject objectSchema, string toolName)
     {
-        if (!context.Path.IsEmpty
-         || schema is not JsonObject objectSchema)
-        {
-            return schema;
-        }
         List<JsonNode> constraints = [];
         if (string.Equals(toolName, SetValueTool.ToolName, StringComparison.Ordinal))
         {
@@ -249,7 +242,7 @@ internal static class StatePocketMcpToolFactory
         }
         if (constraints.Count == 0)
         {
-            return schema;
+            return objectSchema;
         }
         var transformedSchema = CloneObject(objectSchema);
         var allOf = transformedSchema["allOf"] as JsonArray ?? [];
@@ -261,6 +254,21 @@ internal static class StatePocketMcpToolFactory
         return transformedSchema;
     }
 
+    private static void ApplyToolInputSchemaOverrides(McpServerTool tool, MethodInfo method)
+    {
+        var toolName = method.GetCustomAttribute<McpServerToolAttribute>()
+                            ?.Name
+                    ?? method.Name;
+        var schemaNode = JsonNode.Parse(tool.ProtocolTool.InputSchema.GetRawText());
+        if (schemaNode is not JsonObject objectSchema)
+        {
+            return;
+        }
+        var transformedSchema = ApplyToolInputRootSchemaOverrides(objectSchema, toolName);
+        using var document = JsonDocument.Parse(transformedSchema.ToJsonString());
+        tool.ProtocolTool.InputSchema = document.RootElement.Clone();
+    }
+
     private static JsonObject CloneObject(JsonObject? schema)
     {
         return schema is null
@@ -269,18 +277,11 @@ internal static class StatePocketMcpToolFactory
                   .AsObject();
     }
 
-    private static AIJsonSchemaCreateOptions CreateSchemaCreateOptions(MethodInfo method)
+    private static AIJsonSchemaCreateOptions CreateSchemaCreateOptions()
     {
-        var toolName = method.GetCustomAttribute<McpServerToolAttribute>()
-                            ?.Name
-                    ?? method.Name;
         return new AIJsonSchemaCreateOptions
         {
-            TransformSchemaNode = static (context, schema) => TransformToolInputSchemaNode(context, schema),
-            TransformOptions = new AIJsonSchemaTransformOptions
-            {
-                TransformSchemaNode = (context, schema) => TransformToolInputRootSchemaNode(context, schema, toolName)
-            }
+            TransformSchemaNode = static (context, schema) => TransformToolInputSchemaNode(context, schema)
         };
     }
 
@@ -290,6 +291,7 @@ internal static class StatePocketMcpToolFactory
         {
             AllowDuplicateProperties = false
         };
+        options.TypeInfoResolverChain.Insert(0, ToolResultJsonContext.Default);
         options.TypeInfoResolverChain.Insert(0, JsonPatchJsonContext.Default);
         return options;
     }

@@ -2,10 +2,12 @@ using System.Text.Json.Serialization;
 
 namespace StatePocket.Contracts;
 
-internal sealed record ListNamespacesResultData
+internal sealed record ListKeysResult
 {
-    [JsonPropertyName("namespaces")]
-    public required IReadOnlyList<string> Namespaces { get; init; }
+    [JsonPropertyName("namespace")]
+    public required string Namespace { get; init; }
+    [JsonPropertyName("keys")]
+    public required IReadOnlyList<string> Keys { get; init; }
     [JsonPropertyName("nextCursor")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? NextCursor { get; init; }

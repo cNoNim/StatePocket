@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using ModelContextProtocol;
-using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
 using StatePocket.Json.Patch;
@@ -11,19 +10,25 @@ namespace StatePocket.Tools;
 internal sealed class PatchValueTool(IKvStore kvStore)
 {
     public const string ToolName = "patch_value";
+    private const string ToolTitle = "Patch Value";
 
-    [McpServerTool(Name = ToolName)]
+    [McpServerTool(
+        Name = ToolName,
+        Title = ToolTitle,
+        OpenWorld = false,
+        UseStructuredContent = true
+    )]
     [Description(
         "Applies an RFC 6902 JSON Patch document to an existing value in the selected namespace and returns the updated value."
     )]
-    internal async Task<CallToolResult> PatchValueAsync(
+    internal async Task<PatchValueResult> PatchValueAsync(
         [Description("Key to patch.")] string key,
         [Description("JSON Patch document to apply.")] JsonPatch patch,
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedNamespace = ToolResultFactory.NormalizeNamespace(@namespace);
+        var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
         KvValue? updatedValue;
         try
         {
@@ -47,7 +52,7 @@ internal sealed class PatchValueTool(IKvStore kvStore)
         {
             throw new McpException($"Key '{key}' was not found in namespace '{normalizedNamespace}'.");
         }
-        var result = new PatchValueResultData
+        return new PatchValueResult
         {
             Namespace = normalizedNamespace,
             Key = key,
@@ -56,6 +61,5 @@ internal sealed class PatchValueTool(IKvStore kvStore)
             UpdatedAt = updatedValue.UpdatedAt,
             Revision = updatedValue.Revision
         };
-        return ToolResultFactory.Success(result);
     }
 }

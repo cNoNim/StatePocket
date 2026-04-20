@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace StatePocket.Contracts;
 
-internal sealed record SetValueResultData
+internal sealed record SetValueResult
 {
     [JsonPropertyName("namespace")]
     public required string Namespace { get; init; }

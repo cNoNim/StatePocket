@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace StatePocket.Contracts;
 
-internal sealed record PatchValueResultData
+internal sealed record PatchValueResult
 {
     [JsonPropertyName("namespace")]
     public required string Namespace { get; init; }

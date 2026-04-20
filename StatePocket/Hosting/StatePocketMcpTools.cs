@@ -1,6 +1,4 @@
-using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
-using ModelContextProtocol.Protocol;
 using StatePocket.Tools;
 
 namespace StatePocket.Hosting;
@@ -15,9 +13,7 @@ internal static class StatePocketMcpTools
             static services =>
             {
                 var target = services.GetRequiredService<SetValueTool>();
-                var method =
-                    (Func<string, JsonElement, string?, long?, long?, bool, CancellationToken, Task<CallToolResult>>)
-                    target.SetValueAsync;
+                var method = target.SetValueAsync;
                 return StatePocketMcpToolFactory.Create(method.Method, target, services);
             }
         ),

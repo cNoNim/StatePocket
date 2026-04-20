@@ -48,6 +48,17 @@ public sealed class StatePocketMcpToolFactoryTests
     }
 
     [Fact]
+    public void SetValue_ExposesTitleAndClosedWorldHint()
+    {
+        var tool = CreateTool(SetValueTool.ToolName);
+        Assert.Equal("Set Value", tool.ProtocolTool.Title);
+        var annotations = Assert.IsType<ToolAnnotations>(tool.ProtocolTool.Annotations);
+        Assert.Equal("Set Value", annotations.Title);
+        Assert.False(annotations.OpenWorldHint);
+        Assert.Null(annotations.ReadOnlyHint);
+    }
+
+    [Fact]
     public void SetValue_ExposesCamelCaseTtlParameter()
     {
         var tool = CreateTool(SetValueTool.ToolName);
@@ -95,6 +106,49 @@ public sealed class StatePocketMcpToolFactoryTests
             ifAbsentPropertySchema.GetProperty("default")
                                   .GetBoolean()
         );
+    }
+
+    [Fact]
+    public void SetValue_ExposesTypedOutputSchema()
+    {
+        var tool = CreateTool(SetValueTool.ToolName);
+        var outputSchema = tool.ProtocolTool.OutputSchema
+                        ?? throw new InvalidOperationException("Expected output schema.");
+        var properties = outputSchema.GetProperty("properties");
+        Assert.Equal(
+            "string",
+            properties.GetProperty("namespace")
+                      .GetProperty("type")
+                      .GetString()
+        );
+        Assert.Equal(
+            "string",
+            properties.GetProperty("key")
+                      .GetProperty("type")
+                      .GetString()
+        );
+        Assert.Equal(
+            ["string", "null"],
+            [
+                .. properties.GetProperty("expiresAt")
+                             .GetProperty("type")
+                             .EnumerateArray()
+                             .Select(static value => value.GetString()!)
+            ]
+        );
+        Assert.Equal(
+            "string",
+            properties.GetProperty("updatedAt")
+                      .GetProperty("type")
+                      .GetString()
+        );
+        Assert.Equal(
+            "integer",
+            properties.GetProperty("revision")
+                      .GetProperty("type")
+                      .GetString()
+        );
+        Assert.False(outputSchema.TryGetProperty("allOf", out _));
     }
 
     [Fact]
@@ -260,6 +314,49 @@ public sealed class StatePocketMcpToolFactoryTests
                             .GetProperty("not")
                             .GetProperty("type")
                             .GetString()
+        );
+    }
+
+    [Fact]
+    public void GetValue_ExposesTitleAndClosedWorldReadOnlyHints()
+    {
+        var tool = CreateTool(GetValueTool.ToolName);
+        Assert.Equal("Get Value", tool.ProtocolTool.Title);
+        var annotations = Assert.IsType<ToolAnnotations>(tool.ProtocolTool.Annotations);
+        Assert.Equal("Get Value", annotations.Title);
+        Assert.False(annotations.OpenWorldHint);
+        Assert.True(annotations.ReadOnlyHint);
+    }
+
+    [Fact]
+    public void GetValue_ExposesTypedOutputSchema()
+    {
+        var tool = CreateTool(GetValueTool.ToolName);
+        var outputSchema = tool.ProtocolTool.OutputSchema
+                        ?? throw new InvalidOperationException("Expected output schema.");
+        var properties = outputSchema.GetProperty("properties");
+        Assert.Equal(
+            "boolean",
+            properties.GetProperty("found")
+                      .GetProperty("type")
+                      .GetString()
+        );
+        Assert.Equal(
+            "boolean",
+            properties.GetProperty("pathFound")
+                      .GetProperty("type")
+                      .GetString()
+        );
+        Assert.True(properties.TryGetProperty("value", out var valueSchema));
+        Assert.Equal(JsonValueKind.True, valueSchema.ValueKind);
+        Assert.Equal(
+            ["integer", "null"],
+            [
+                .. properties.GetProperty("revision")
+                             .GetProperty("type")
+                             .EnumerateArray()
+                             .Select(static value => value.GetString()!)
+            ]
         );
     }
 

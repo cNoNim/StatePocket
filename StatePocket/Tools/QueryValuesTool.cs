@@ -13,12 +13,19 @@ namespace StatePocket.Tools;
 internal sealed class QueryValuesTool(IKvStore kvStore)
 {
     public const string ToolName = "query_values";
+    private const string ToolTitle = "Query Values";
 
-    [McpServerTool(Name = ToolName, ReadOnly = true)]
+    [McpServerTool(
+        Name = ToolName,
+        Title = ToolTitle,
+        ReadOnly = true,
+        OpenWorld = false,
+        UseStructuredContent = true
+    )]
     [Description(
         "Finds values in the selected namespace by key pattern and optional JSONPath filter, with optional equality and JSON Pointer projection. Pagination uses an opaque scan cursor over keys in ascending order."
     )]
-    internal async Task<CallToolResult> QueryValuesAsync(
+    internal async Task<QueryValuesResult> QueryValuesAsync(
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
         [Description("Optional wildcard key pattern, for example 'user:*'.")] string? pattern = null,
         [Description(
@@ -45,8 +52,8 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedNamespace = ToolResultFactory.NormalizeNamespace(@namespace);
-        var normalizedLimit = ToolResultFactory.NormalizeLimit(limit);
+        var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
+        var normalizedLimit = ToolArgumentHelper.NormalizeLimit(limit);
         var hasEqualsArgument = requestContext?.Params.Arguments?.ContainsKey("equals") ?? equals.HasValue;
         if (query is null && hasEqualsArgument)
         {
@@ -67,13 +74,12 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
                     cancellationToken
                 )
                .ConfigureAwait(false);
-            var result = new QueryValuesResultData
+            return new QueryValuesResult
             {
                 Namespace = normalizedNamespace,
                 Values = pageResult.Values,
                 NextCursor = pageResult.NextCursor
             };
-            return ToolResultFactory.Success(result);
         }
         catch (JsonPathException exception)
         {
@@ -135,7 +141,7 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         CancellationToken cancellationToken
     )
     {
-        Dictionary<string, GetValuesEntryData> values = new(StringComparer.Ordinal);
+        Dictionary<string, GetValuesEntry> values = new(StringComparer.Ordinal);
         var nextScanCursor = cursor;
         string? nextResultCursor = null;
         while (values.Count < limit)
@@ -144,7 +150,7 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
                                          @namespace,
                                          pattern,
                                          nextScanCursor,
-                                         ToolResultFactory.MaxResultItems,
+                                         ToolArgumentHelper.MaxResultItems,
                                          cancellationToken
                                      )
                                     .ConfigureAwait(false);
@@ -180,5 +186,5 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         return new QueryPageResult(values, nextResultCursor);
     }
 
-    private sealed record QueryPageResult(IReadOnlyDictionary<string, GetValuesEntryData> Values, string? NextCursor);
+    private sealed record QueryPageResult(IReadOnlyDictionary<string, GetValuesEntry> Values, string? NextCursor);
 }

@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace StatePocket.Contracts;
 
-internal sealed record GetValuesEntryData
+internal sealed record GetValuesEntry
 {
     [JsonPropertyName("found")]
     public required bool Found { get; init; }

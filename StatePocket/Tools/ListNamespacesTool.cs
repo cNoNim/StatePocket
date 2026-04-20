@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
 using StatePocket.Storage;
@@ -9,10 +8,17 @@ namespace StatePocket.Tools;
 internal sealed class ListNamespacesTool(IKvStore kvStore)
 {
     public const string ToolName = "list_namespaces";
+    private const string ToolTitle = "List Namespaces";
 
-    [McpServerTool(Name = ToolName, ReadOnly = true)]
+    [McpServerTool(
+        Name = ToolName,
+        Title = ToolTitle,
+        ReadOnly = true,
+        OpenWorld = false,
+        UseStructuredContent = true
+    )]
     [Description("Lists namespaces, optionally filtered by a wildcard pattern.")]
-    internal async Task<CallToolResult> ListNamespacesAsync(
+    internal async Task<ListNamespacesResult> ListNamespacesAsync(
         [Description("Optional wildcard namespace pattern, for example 'team:*'.")] string? pattern = null,
         [Description("Maximum number of namespaces to return. Defaults to 50 and must be less than or equal to 100.")]
         int? limit = null,
@@ -23,7 +29,7 @@ internal sealed class ListNamespacesTool(IKvStore kvStore)
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedLimit = ToolResultFactory.NormalizeLimit(limit);
+        var normalizedLimit = ToolArgumentHelper.NormalizeLimit(limit);
         var page = await kvStore.ListNamespacesPageAsync(
                                      pattern,
                                      cursor,
@@ -31,11 +37,10 @@ internal sealed class ListNamespacesTool(IKvStore kvStore)
                                      cancellationToken
                                  )
                                 .ConfigureAwait(false);
-        var result = new ListNamespacesResultData
+        return new ListNamespacesResult
         {
             Namespaces = page.Items,
             NextCursor = page.NextCursor
         };
-        return ToolResultFactory.Success(result);
     }
 }

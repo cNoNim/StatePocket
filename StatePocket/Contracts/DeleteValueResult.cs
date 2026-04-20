@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace StatePocket.Contracts;
 
-internal sealed record DeleteValueResultData
+internal sealed record DeleteValueResult
 {
     [JsonPropertyName("namespace")]
     public required string Namespace { get; init; }

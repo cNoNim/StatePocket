@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using ModelContextProtocol;
-using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
 using StatePocket.Json.Pointer;
@@ -11,12 +10,19 @@ namespace StatePocket.Tools;
 internal sealed class GetValuesTool(IKvStore kvStore)
 {
     public const string ToolName = "get_values";
+    private const string ToolTitle = "Get Values";
 
-    [McpServerTool(Name = ToolName, ReadOnly = true)]
+    [McpServerTool(
+        Name = ToolName,
+        Title = ToolTitle,
+        ReadOnly = true,
+        OpenWorld = false,
+        UseStructuredContent = true
+    )]
     [Description(
         "Retrieves multiple values by key from the selected namespace, with optional JSON Pointer projection."
     )]
-    internal async Task<CallToolResult> GetValuesAsync(
+    internal async Task<GetValuesResult> GetValuesAsync(
         [Description("Keys to retrieve. Maximum 100 keys per request.")] string[] keys,
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
         [Description(
@@ -34,34 +40,33 @@ internal sealed class GetValuesTool(IKvStore kvStore)
                 throw new McpException("keys must not contain null values.");
             }
         }
-        if (keys.Length > ToolResultFactory.MaxResultItems)
+        if (keys.Length > ToolArgumentHelper.MaxResultItems)
         {
             throw new McpException(
-                $"keys must contain less than or equal to {ToolResultFactory.MaxResultItems} items."
+                $"keys must contain less than or equal to {ToolArgumentHelper.MaxResultItems} items."
             );
         }
-        var normalizedNamespace = ToolResultFactory.NormalizeNamespace(@namespace);
+        var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
         var storedValues = await kvStore.GetValuesAsync(normalizedNamespace, keys, cancellationToken)
                                         .ConfigureAwait(false);
-        Dictionary<string, GetValuesEntryData> values = new(StringComparer.Ordinal);
+        Dictionary<string, GetValuesEntry> values = new(StringComparer.Ordinal);
         foreach (var key in keys)
         {
             values[key] = ProjectValue(storedValues.GetValueOrDefault(key), path);
         }
-        var result = new GetValuesResultData
+        return new GetValuesResult
         {
             Namespace = normalizedNamespace,
             Values = values,
             NextCursor = null
         };
-        return ToolResultFactory.Success(result);
     }
 
-    internal static GetValuesEntryData ProjectValue(KvValue? storedValue, JsonPointer? pointer)
+    internal static GetValuesEntry ProjectValue(KvValue? storedValue, JsonPointer? pointer)
     {
         if (storedValue is null)
         {
-            return new GetValuesEntryData
+            return new GetValuesEntry
             {
                 Found = false,
                 PathFound = false
@@ -69,7 +74,7 @@ internal sealed class GetValuesTool(IKvStore kvStore)
         }
         if (pointer is null)
         {
-            return new GetValuesEntryData
+            return new GetValuesEntry
             {
                 Found = true,
                 PathFound = true,
@@ -80,7 +85,7 @@ internal sealed class GetValuesTool(IKvStore kvStore)
             };
         }
         return pointer.Value.TryEvaluate(storedValue.Value, out var projectedValue)
-          ? new GetValuesEntryData
+          ? new GetValuesEntry
             {
                 Found = true,
                 PathFound = true,
@@ -89,7 +94,7 @@ internal sealed class GetValuesTool(IKvStore kvStore)
                 UpdatedAt = storedValue.UpdatedAt,
                 Revision = storedValue.Revision
             }
-          : new GetValuesEntryData
+          : new GetValuesEntry
             {
                 Found = true,
                 PathFound = false,

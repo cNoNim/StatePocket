@@ -3,7 +3,6 @@ using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Time.Testing;
 using ModelContextProtocol;
-using ModelContextProtocol.Protocol;
 using StatePocket.Configuration;
 using StatePocket.Contracts;
 using StatePocket.Json.Patch;
@@ -87,7 +86,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task SetValue_ReturnsStructuredContent()
+    public async Task SetValue_ReturnsTypedResult()
     {
         SetValueTool tool = new(_store);
         var result = await tool.SetValueAsync(
@@ -95,13 +94,11 @@ public sealed class ToolResponseTests : IDisposable
             ParseJson("\"ok\""),
             cancellationToken: CancellationToken.None
         );
-        var data = DeserializeStructuredContent<SetValueResultData>(result);
-        Assert.Equal("default", data.Namespace);
-        Assert.Equal("smoke.test", data.Key);
-        Assert.Null(data.ExpiresAt);
-        Assert.Equal("2026-04-14T10:00:00.0000000Z", data.UpdatedAt);
-        Assert.Equal(1, data.Revision);
-        AssertTextMatchesStructuredContent(result);
+        Assert.Equal("default", result.Namespace);
+        Assert.Equal("smoke.test", result.Key);
+        Assert.Null(result.ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", result.UpdatedAt);
+        Assert.Equal(1, result.Revision);
     }
 
     [Fact]
@@ -115,13 +112,11 @@ public sealed class ToolResponseTests : IDisposable
             60,
             cancellationToken: CancellationToken.None
         );
-        var data = DeserializeStructuredContent<SetValueResultData>(result);
-        Assert.Equal("codex", data.Namespace);
-        Assert.Equal("smoke.test", data.Key);
-        Assert.Equal("2026-04-14T10:01:00.0000000Z", data.ExpiresAt);
-        Assert.Equal("2026-04-14T10:00:00.0000000Z", data.UpdatedAt);
-        Assert.Equal(1, data.Revision);
-        AssertTextMatchesStructuredContent(result);
+        Assert.Equal("codex", result.Namespace);
+        Assert.Equal("smoke.test", result.Key);
+        Assert.Equal("2026-04-14T10:01:00.0000000Z", result.ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", result.UpdatedAt);
+        Assert.Equal(1, result.Revision);
     }
 
     [Fact]
@@ -134,17 +129,14 @@ public sealed class ToolResponseTests : IDisposable
             "codex",
             cancellationToken: CancellationToken.None
         );
-        var firstData = DeserializeStructuredContent<SetValueResultData>(firstWrite);
         var secondWrite = await tool.SetValueAsync(
             "cas",
             ParseJson("\"second\""),
             "codex",
-            expectedRevision: firstData.Revision,
+            expectedRevision: firstWrite.Revision,
             cancellationToken: CancellationToken.None
         );
-        var secondData = DeserializeStructuredContent<SetValueResultData>(secondWrite);
-        Assert.Equal(2, secondData.Revision);
-        AssertTextMatchesStructuredContent(secondWrite);
+        Assert.Equal(2, secondWrite.Revision);
     }
 
     [Fact]
@@ -183,9 +175,7 @@ public sealed class ToolResponseTests : IDisposable
             ifAbsent: true,
             cancellationToken: CancellationToken.None
         );
-        var data = DeserializeStructuredContent<SetValueResultData>(result);
-        Assert.Equal(1, data.Revision);
-        AssertTextMatchesStructuredContent(result);
+        Assert.Equal(1, result.Revision);
     }
 
     [Fact]
@@ -238,9 +228,7 @@ public sealed class ToolResponseTests : IDisposable
             ifAbsent: true,
             cancellationToken: CancellationToken.None
         );
-        var data = DeserializeStructuredContent<SetValueResultData>(result);
-        Assert.Equal(1, data.Revision);
-        AssertTextMatchesStructuredContent(result);
+        Assert.Equal(1, result.Revision);
     }
 
     [Fact]
@@ -296,17 +284,15 @@ public sealed class ToolResponseTests : IDisposable
             null,
             CancellationToken.None
         );
-        var data = DeserializeStructuredContent<GetValueResultData>(result);
-        Assert.True(data.Found);
-        Assert.True(data.PathFound);
-        Assert.Equal("codex", data.Namespace);
-        Assert.Equal("present", data.Key);
-        Assert.True(data.Value.HasValue);
-        Assert.Equal(JsonValueKind.Object, data.Value.Value.ValueKind);
-        Assert.NotNull(data.ExpiresAt);
-        Assert.Equal("2026-04-14T10:00:00.0000000Z", data.UpdatedAt);
-        Assert.Equal(1, data.Revision);
-        AssertTextMatchesStructuredContent(result);
+        Assert.True(result.Found);
+        Assert.True(result.PathFound);
+        Assert.Equal("codex", result.Namespace);
+        Assert.Equal("present", result.Key);
+        Assert.True(result.Value.HasValue);
+        Assert.Equal(JsonValueKind.Object, result.Value.Value.ValueKind);
+        Assert.NotNull(result.ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", result.UpdatedAt);
+        Assert.Equal(1, result.Revision);
     }
 
     [Fact]
@@ -356,13 +342,6 @@ public sealed class ToolResponseTests : IDisposable
         Assert.Null(result.ExpiresAt);
         Assert.Equal("2026-04-14T10:00:00.0000000Z", result.UpdatedAt);
         Assert.Equal(1, result.Revision);
-        var callToolResult = await getTool.GetValueAsync(
-            "profile",
-            "codex",
-            ParsePointer("/nested/value"),
-            CancellationToken.None
-        );
-        AssertTextMatchesStructuredContent(callToolResult);
     }
 
     [Fact]
@@ -375,7 +354,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task ListKeys_ReturnsStructuredContent()
+    public async Task ListKeys_ReturnsTypedResult()
     {
         ListKeysTool listTool = new(_store);
         SetValueTool setTool = new(_store);
@@ -393,15 +372,13 @@ public sealed class ToolResponseTests : IDisposable
             null,
             CancellationToken.None
         );
-        var data = DeserializeStructuredContent<ListKeysResultData>(result);
-        Assert.Equal("codex", data.Namespace);
-        Assert.Equal(["one"], data.Keys);
-        Assert.Null(data.NextCursor);
-        AssertTextMatchesStructuredContent(result);
+        Assert.Equal("codex", result.Namespace);
+        Assert.Equal(["one"], result.Keys);
+        Assert.Null(result.NextCursor);
     }
 
     [Fact]
-    public async Task ListNamespaces_ReturnsStructuredContent()
+    public async Task ListNamespaces_ReturnsTypedResult()
     {
         ListNamespacesTool listTool = new(_store);
         SetValueTool setTool = new(_store);
@@ -425,10 +402,8 @@ public sealed class ToolResponseTests : IDisposable
             null,
             CancellationToken.None
         );
-        var data = DeserializeStructuredContent<ListNamespacesResultData>(result);
-        Assert.Equal(["alpha", "beta"], data.Namespaces);
-        Assert.Null(data.NextCursor);
-        AssertTextMatchesStructuredContent(result);
+        Assert.Equal(["alpha", "beta"], result.Namespaces);
+        Assert.Null(result.NextCursor);
     }
 
     [Fact]
@@ -436,7 +411,7 @@ public sealed class ToolResponseTests : IDisposable
     {
         ListKeysTool listTool = new(_store);
         SetValueTool setTool = new(_store);
-        foreach (var index in Enumerable.Range(0, ToolResultFactory.DefaultPageSize + 1))
+        foreach (var index in Enumerable.Range(0, ToolArgumentHelper.DefaultPageSize + 1))
         {
             await setTool.SetValueCoreAsync(
                 $"key-{index:D2}",
@@ -453,11 +428,9 @@ public sealed class ToolResponseTests : IDisposable
             null,
             CancellationToken.None
         );
-        var data = DeserializeStructuredContent<ListKeysResultData>(result);
-        Assert.Equal(ToolResultFactory.DefaultPageSize, data.Keys.Count);
-        Assert.Equal("key-49", data.Keys[^1]);
-        Assert.Equal("key-49", data.NextCursor);
-        AssertTextMatchesStructuredContent(result);
+        Assert.Equal(ToolArgumentHelper.DefaultPageSize, result.Keys.Count);
+        Assert.Equal("key-49", result.Keys[^1]);
+        Assert.Equal("key-49", result.NextCursor);
     }
 
     [Fact]
@@ -484,20 +457,16 @@ public sealed class ToolResponseTests : IDisposable
             null,
             CancellationToken.None
         );
-        var firstPageData = DeserializeStructuredContent<ListNamespacesResultData>(firstPage);
-        Assert.Equal(["alpha", "beta"], firstPageData.Namespaces);
-        Assert.Equal("beta", firstPageData.NextCursor);
-        AssertTextMatchesStructuredContent(firstPage);
+        Assert.Equal(["alpha", "beta"], firstPage.Namespaces);
+        Assert.Equal("beta", firstPage.NextCursor);
         var secondPage = await listTool.ListNamespacesAsync(
             null,
             2,
-            firstPageData.NextCursor,
+            firstPage.NextCursor,
             CancellationToken.None
         );
-        var secondPageData = DeserializeStructuredContent<ListNamespacesResultData>(secondPage);
-        Assert.Equal(["gamma"], secondPageData.Namespaces);
-        Assert.Null(secondPageData.NextCursor);
-        AssertTextMatchesStructuredContent(secondPage);
+        Assert.Equal(["gamma"], secondPage.Namespaces);
+        Assert.Null(secondPage.NextCursor);
     }
 
     [Fact]
@@ -507,7 +476,7 @@ public sealed class ToolResponseTests : IDisposable
         var exception = await Assert.ThrowsAsync<McpException>(() => listTool.ListKeysAsync(
                 "codex",
                 null,
-                ToolResultFactory.MaxResultItems + 1,
+                ToolArgumentHelper.MaxResultItems + 1,
                 null,
                 CancellationToken.None
             )
@@ -516,7 +485,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task GetValues_ReturnsStructuredContent()
+    public async Task GetValues_ReturnsTypedResult()
     {
         GetValuesTool getValuesTool = new(_store);
         SetValueTool setTool = new(_store);
@@ -540,44 +509,40 @@ public sealed class ToolResponseTests : IDisposable
             ParsePointer("/profile/name"),
             CancellationToken.None
         );
-        var data = DeserializeStructuredContent<GetValuesResultData>(result);
-        Assert.Equal("codex", data.Namespace);
+        Assert.Equal("codex", result.Namespace);
         Assert.Equal(
             "\"a\"",
-            data.Values["one"]
-                .Value?.GetRawText()
+            result.Values["one"]
+                  .Value?.GetRawText()
         );
-        Assert.True(data.Values["one"].Found);
-        Assert.True(data.Values["one"].PathFound);
-        Assert.NotNull(data.Values["one"].ExpiresAt);
-        Assert.Equal("2026-04-14T10:00:00.0000000Z", data.Values["one"].UpdatedAt);
-        Assert.Equal(1, data.Values["one"].Revision);
-        Assert.True(data.Values["two"].Found);
-        Assert.True(data.Values["two"].PathFound);
-        Assert.Null(data.Values["two"].ExpiresAt);
-        Assert.Equal("2026-04-14T10:00:00.0000000Z", data.Values["two"].UpdatedAt);
-        Assert.Equal(2, data.Values["two"].Revision);
-        var structuredContent = result.StructuredContent
-                             ?? throw new InvalidOperationException("Expected structured content.");
+        Assert.True(result.Values["one"].Found);
+        Assert.True(result.Values["one"].PathFound);
+        Assert.NotNull(result.Values["one"].ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", result.Values["one"].UpdatedAt);
+        Assert.Equal(1, result.Values["one"].Revision);
+        Assert.True(result.Values["two"].Found);
+        Assert.True(result.Values["two"].PathFound);
+        Assert.Null(result.Values["two"].ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", result.Values["two"].UpdatedAt);
+        Assert.Equal(2, result.Values["two"].Revision);
+        var explicitNullValue = result.Values["two"].Value;
+        Assert.True(explicitNullValue.HasValue);
         Assert.Equal(
             JsonValueKind.Null,
-            structuredContent.GetProperty("values")
-                             .GetProperty("two")
-                             .GetProperty("value")
+            explicitNullValue.GetValueOrDefault()
                              .ValueKind
         );
-        Assert.False(data.Values["missing"].Found);
-        Assert.False(data.Values["missing"].PathFound);
-        Assert.Null(data.Values["missing"].Value);
-        Assert.Null(data.Values["missing"].ExpiresAt);
-        Assert.Null(data.Values["missing"].UpdatedAt);
-        Assert.Null(data.Values["missing"].Revision);
-        Assert.Null(data.NextCursor);
-        AssertTextMatchesStructuredContent(result);
+        Assert.False(result.Values["missing"].Found);
+        Assert.False(result.Values["missing"].PathFound);
+        Assert.Null(result.Values["missing"].Value);
+        Assert.Null(result.Values["missing"].ExpiresAt);
+        Assert.Null(result.Values["missing"].UpdatedAt);
+        Assert.Null(result.Values["missing"].Revision);
+        Assert.Null(result.NextCursor);
     }
 
     [Fact]
-    public async Task GetValues_ReturnsSerializedStructuredContentWhenKeysAreEmpty()
+    public async Task GetValues_ReturnsEmptyResultWhenKeysAreEmpty()
     {
         GetValuesTool getValuesTool = new(_store);
         var result = await getValuesTool.GetValuesAsync(
@@ -586,15 +551,13 @@ public sealed class ToolResponseTests : IDisposable
             null,
             CancellationToken.None
         );
-        var data = DeserializeStructuredContent<GetValuesResultData>(result);
-        Assert.Equal("codex", data.Namespace);
-        Assert.Empty(data.Values);
-        Assert.Null(data.NextCursor);
-        AssertTextMatchesStructuredContent(result);
+        Assert.Equal("codex", result.Namespace);
+        Assert.Empty(result.Values);
+        Assert.Null(result.NextCursor);
     }
 
     [Fact]
-    public async Task GetValues_TextMatchesStructuredContentWhenKeysContainDuplicates()
+    public async Task GetValues_DeduplicatesKeysWhenInputContainsDuplicates()
     {
         GetValuesTool getValuesTool = new(_store);
         SetValueTool setTool = new(_store);
@@ -611,17 +574,15 @@ public sealed class ToolResponseTests : IDisposable
             null,
             CancellationToken.None
         );
-        var data = DeserializeStructuredContent<GetValuesResultData>(result);
-        Assert.Equal(["one"], data.Values.Keys);
-        Assert.Null(data.NextCursor);
-        AssertTextMatchesStructuredContent(result);
+        Assert.Equal(["one"], result.Values.Keys);
+        Assert.Null(result.NextCursor);
     }
 
     [Fact]
     public async Task GetValues_ThrowsMcpExceptionWhenKeyCountExceedsHardCap()
     {
         GetValuesTool getValuesTool = new(_store);
-        var keys = Enumerable.Range(0, ToolResultFactory.MaxResultItems + 1)
+        var keys = Enumerable.Range(0, ToolArgumentHelper.MaxResultItems + 1)
                              .Select(static index => $"key-{index:D3}")
                              .ToArray();
         var exception = await Assert.ThrowsAsync<McpException>(() => getValuesTool.GetValuesAsync(
@@ -692,21 +653,19 @@ public sealed class ToolResponseTests : IDisposable
             ParsePointer("/profile/name"),
             cancellationToken: CancellationToken.None
         );
-        var data = DeserializeStructuredContent<QueryValuesResultData>(result);
-        Assert.Equal("codex", data.Namespace);
-        Assert.Equal(["alpha"], data.Values.Keys);
-        Assert.True(data.Values["alpha"].Found);
-        Assert.True(data.Values["alpha"].PathFound);
-        Assert.NotNull(data.Values["alpha"].ExpiresAt);
-        Assert.Equal("2026-04-14T10:00:00.0000000Z", data.Values["alpha"].UpdatedAt);
-        Assert.Equal(1, data.Values["alpha"].Revision);
+        Assert.Equal("codex", result.Namespace);
+        Assert.Equal(["alpha"], result.Values.Keys);
+        Assert.True(result.Values["alpha"].Found);
+        Assert.True(result.Values["alpha"].PathFound);
+        Assert.NotNull(result.Values["alpha"].ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", result.Values["alpha"].UpdatedAt);
+        Assert.Equal(1, result.Values["alpha"].Revision);
         Assert.Equal(
             "\"A\"",
-            data.Values["alpha"]
-                .Value?.GetRawText()
+            result.Values["alpha"]
+                  .Value?.GetRawText()
         );
-        Assert.Null(data.NextCursor);
-        AssertTextMatchesStructuredContent(result);
+        Assert.Null(result.NextCursor);
     }
 
     [Fact]
@@ -773,23 +732,19 @@ public sealed class ToolResponseTests : IDisposable
             limit: 2,
             cancellationToken: CancellationToken.None
         );
-        var firstPageData = DeserializeStructuredContent<QueryValuesResultData>(firstPage);
-        Assert.Equal(["alpha", "beta"], firstPageData.Values.Keys);
-        Assert.Equal("beta", firstPageData.NextCursor);
-        AssertTextMatchesStructuredContent(firstPage);
+        Assert.Equal(["alpha", "beta"], firstPage.Values.Keys);
+        Assert.Equal("beta", firstPage.NextCursor);
         var secondPage = await queryTool.QueryValuesAsync(
             "codex",
             "*",
             "$.status",
             path: ParsePointer("/status"),
             limit: 2,
-            cursor: firstPageData.NextCursor,
+            cursor: firstPage.NextCursor,
             cancellationToken: CancellationToken.None
         );
-        var secondPageData = DeserializeStructuredContent<QueryValuesResultData>(secondPage);
-        Assert.Equal(["gamma"], secondPageData.Values.Keys);
-        Assert.Null(secondPageData.NextCursor);
-        AssertTextMatchesStructuredContent(secondPage);
+        Assert.Equal(["gamma"], secondPage.Values.Keys);
+        Assert.Null(secondPage.NextCursor);
     }
 
     [Fact]
@@ -973,7 +928,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task DeleteValue_ReturnsStructuredContent()
+    public async Task DeleteValue_ReturnsTypedResult()
     {
         DeleteValueTool deleteTool = new(_store);
         SetValueTool setTool = new(_store);
@@ -985,10 +940,8 @@ public sealed class ToolResponseTests : IDisposable
             CancellationToken.None
         );
         var result = await deleteTool.DeleteValueAsync("gone", "codex", CancellationToken.None);
-        var data = DeserializeStructuredContent<DeleteValueResultData>(result);
-        Assert.Equal("codex", data.Namespace);
-        Assert.Equal("gone", data.Key);
-        AssertTextMatchesStructuredContent(result);
+        Assert.Equal("codex", result.Namespace);
+        Assert.Equal("gone", result.Key);
     }
 
     [Fact]
@@ -1036,7 +989,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task PatchValue_ReturnsStructuredContent()
+    public async Task PatchValue_ReturnsTypedResult()
     {
         SetValueTool setTool = new(_store);
         PatchValueTool updateTool = new(_store);
@@ -1053,14 +1006,12 @@ public sealed class ToolResponseTests : IDisposable
             "codex",
             CancellationToken.None
         );
-        var data = DeserializeStructuredContent<PatchValueResultData>(result);
-        Assert.Equal("codex", data.Namespace);
-        Assert.Equal("profile", data.Key);
-        Assert.Equal("{\"name\":\"new\"}", data.Value.GetRawText());
-        Assert.Null(data.ExpiresAt);
-        Assert.Equal("2026-04-14T10:00:00.0000000Z", data.UpdatedAt);
-        Assert.Equal(2, data.Revision);
-        AssertTextMatchesStructuredContent(result);
+        Assert.Equal("codex", result.Namespace);
+        Assert.Equal("profile", result.Key);
+        Assert.Equal("{\"name\":\"new\"}", result.Value.GetRawText());
+        Assert.Null(result.ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", result.UpdatedAt);
+        Assert.Equal(2, result.Revision);
     }
 
     [Fact]
@@ -1081,14 +1032,12 @@ public sealed class ToolResponseTests : IDisposable
             "codex",
             CancellationToken.None
         );
-        var data = DeserializeStructuredContent<PatchValueResultData>(result);
-        Assert.Equal("codex", data.Namespace);
-        Assert.Equal("profile", data.Key);
-        Assert.Equal("{\"name\":\"new\"}", data.Value.GetRawText());
-        Assert.Equal("2026-04-14T10:01:00.0000000Z", data.ExpiresAt);
-        Assert.Equal("2026-04-14T10:00:00.0000000Z", data.UpdatedAt);
-        Assert.Equal(2, data.Revision);
-        AssertTextMatchesStructuredContent(result);
+        Assert.Equal("codex", result.Namespace);
+        Assert.Equal("profile", result.Key);
+        Assert.Equal("{\"name\":\"new\"}", result.Value.GetRawText());
+        Assert.Equal("2026-04-14T10:01:00.0000000Z", result.ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", result.UpdatedAt);
+        Assert.Equal(2, result.Revision);
     }
 
     [Fact]
@@ -1329,10 +1278,10 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public void GetValueResultData_UsesCamelCaseJsonFieldNames()
+    public void GetValueResult_UsesCamelCaseJsonFieldNames()
     {
         var json = JsonSerializer.SerializeToElement(
-            new GetValueResultData
+            new GetValueResult
             {
                 Namespace = "codex",
                 Key = "key",
@@ -1352,10 +1301,10 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public void SetValueResultData_UsesCamelCaseJsonFieldNames()
+    public void SetValueResult_UsesCamelCaseJsonFieldNames()
     {
         var json = JsonSerializer.SerializeToElement(
-            new SetValueResultData
+            new SetValueResult
             {
                 Namespace = "codex",
                 Key = "key",
@@ -1371,10 +1320,10 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public void PatchValueResultData_UsesCamelCaseJsonFieldNames()
+    public void PatchValueResult_UsesCamelCaseJsonFieldNames()
     {
         var json = JsonSerializer.SerializeToElement(
-            new PatchValueResultData
+            new PatchValueResult
             {
                 Namespace = "codex",
                 Key = "key",
@@ -1391,10 +1340,10 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public void GetValuesEntryData_UsesCamelCaseJsonFieldNames()
+    public void GetValuesEntry_UsesCamelCaseJsonFieldNames()
     {
         var json = JsonSerializer.SerializeToElement(
-            new GetValuesEntryData
+            new GetValuesEntry
             {
                 Found = true,
                 PathFound = true,
@@ -1412,13 +1361,13 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public void GetValuesResultData_UsesCamelCaseJsonFieldNames()
+    public void GetValuesResult_UsesCamelCaseJsonFieldNames()
     {
         var json = JsonSerializer.SerializeToElement(
-            new GetValuesResultData
+            new GetValuesResult
             {
                 Namespace = "codex",
-                Values = new Dictionary<string, GetValuesEntryData>(StringComparer.Ordinal),
+                Values = new Dictionary<string, GetValuesEntry>(StringComparer.Ordinal),
                 NextCursor = "cursor-1"
             }
         );
@@ -1427,13 +1376,13 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public void QueryValuesResultData_UsesCamelCaseJsonFieldNames()
+    public void QueryValuesResult_UsesCamelCaseJsonFieldNames()
     {
         var json = JsonSerializer.SerializeToElement(
-            new QueryValuesResultData
+            new QueryValuesResult
             {
                 Namespace = "codex",
-                Values = new Dictionary<string, GetValuesEntryData>(StringComparer.Ordinal),
+                Values = new Dictionary<string, GetValuesEntry>(StringComparer.Ordinal),
                 NextCursor = "cursor-1"
             }
         );
@@ -1442,10 +1391,10 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public void ListKeysResultData_UsesCamelCaseJsonFieldNames()
+    public void ListKeysResult_UsesCamelCaseJsonFieldNames()
     {
         var json = JsonSerializer.SerializeToElement(
-            new ListKeysResultData
+            new ListKeysResult
             {
                 Namespace = "codex",
                 Keys = ["key"],
@@ -1457,10 +1406,10 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public void ListNamespacesResultData_UsesCamelCaseJsonFieldNames()
+    public void ListNamespacesResult_UsesCamelCaseJsonFieldNames()
     {
         var json = JsonSerializer.SerializeToElement(
-            new ListNamespacesResultData
+            new ListNamespacesResult
             {
                 Namespaces = ["codex"],
                 NextCursor = "cursor-1"
@@ -1518,30 +1467,6 @@ public sealed class ToolResponseTests : IDisposable
         return new WriteLockHandle(connection, transaction);
     }
 
-    private static T DeserializeStructuredContent<T>(CallToolResult result)
-    {
-        var structuredContent = result.StructuredContent
-                             ?? throw new InvalidOperationException("Expected structured content.");
-        return structuredContent.Deserialize<T>()
-            ?? throw new InvalidOperationException($"Failed to deserialize structured content as '{typeof(T).Name}'.");
-    }
-
-    private static string GetTextContent(CallToolResult result)
-    {
-        return string.Join(
-            Environment.NewLine,
-            result.Content.OfType<TextContentBlock>()
-                  .Select(static block => block.Text)
-        );
-    }
-
-    private static void AssertTextMatchesStructuredContent(CallToolResult result)
-    {
-        var structuredContent = result.StructuredContent
-                             ?? throw new InvalidOperationException("Expected structured content.");
-        Assert.Equal(structuredContent.GetRawText(), GetTextContent(result));
-    }
-
     private static ReplaceOperation Replace(string path, string valueJson)
     {
         return JsonPatchOperation.Replace(path, ParseNode(valueJson));
@@ -1585,7 +1510,7 @@ public sealed class ToolResponseTests : IDisposable
 
 internal static class ToolResponseTestExtensions
 {
-    public static async Task<SetValueResultData> SetValueCoreAsync(
+    public static Task<SetValueResult> SetValueCoreAsync(
         this SetValueTool tool,
         string key,
         JsonElement value,
@@ -1594,19 +1519,16 @@ internal static class ToolResponseTestExtensions
         CancellationToken cancellationToken = default
     )
     {
-        return DeserializeStructuredContent<SetValueResultData>(
-            await tool.SetValueAsync(
-                           key,
-                           value,
-                           @namespace,
-                           ttlSeconds,
-                           cancellationToken: cancellationToken
-                       )
-                      .ConfigureAwait(false)
+        return tool.SetValueAsync(
+            key,
+            value,
+            @namespace,
+            ttlSeconds,
+            cancellationToken: cancellationToken
         );
     }
 
-    public static async Task<GetValueResultData> GetValueCoreAsync(
+    public static Task<GetValueResult> GetValueCoreAsync(
         this GetValueTool tool,
         string key,
         string? @namespace = null,
@@ -1614,18 +1536,15 @@ internal static class ToolResponseTestExtensions
         CancellationToken cancellationToken = default
     )
     {
-        return DeserializeStructuredContent<GetValueResultData>(
-            await tool.GetValueAsync(
-                           key,
-                           @namespace,
-                           ParsePointer(path),
-                           cancellationToken
-                       )
-                      .ConfigureAwait(false)
+        return tool.GetValueAsync(
+            key,
+            @namespace,
+            ParsePointer(path),
+            cancellationToken
         );
     }
 
-    public static async Task<GetValuesResultData> GetValuesCoreAsync(
+    public static Task<GetValuesResult> GetValuesCoreAsync(
         this GetValuesTool tool,
         string[] keys,
         string? @namespace = null,
@@ -1633,18 +1552,15 @@ internal static class ToolResponseTestExtensions
         CancellationToken cancellationToken = default
     )
     {
-        return DeserializeProjectedValuesResult<GetValuesResultData>(
-            await tool.GetValuesAsync(
-                           keys,
-                           @namespace,
-                           ParsePointer(path),
-                           cancellationToken
-                       )
-                      .ConfigureAwait(false)
+        return tool.GetValuesAsync(
+            keys,
+            @namespace,
+            ParsePointer(path),
+            cancellationToken
         );
     }
 
-    public static async Task<QueryValuesResultData> QueryValuesCoreAsync(
+    public static Task<QueryValuesResult> QueryValuesCoreAsync(
         this QueryValuesTool tool,
         string? @namespace = null,
         string? pattern = null,
@@ -1655,55 +1571,46 @@ internal static class ToolResponseTestExtensions
         CancellationToken cancellationToken = default
     )
     {
-        return DeserializeProjectedValuesResult<QueryValuesResultData>(
-            await tool.QueryValuesAsync(
-                           @namespace,
-                           pattern,
-                           query,
-                           hasEqualsArgument && !equals.HasValue ? ParseJsonElement("null") : equals,
-                           ParsePointer(path),
-                           null,
-                           null,
-                           null,
-                           cancellationToken
-                       )
-                      .ConfigureAwait(false)
+        return tool.QueryValuesAsync(
+            @namespace,
+            pattern,
+            query,
+            hasEqualsArgument && !equals.HasValue ? ParseJsonElement("null") : equals,
+            ParsePointer(path),
+            null,
+            null,
+            null,
+            cancellationToken
         );
     }
 
-    public static async Task<ListKeysResultData> ListKeysCoreAsync(
+    public static Task<ListKeysResult> ListKeysCoreAsync(
         this ListKeysTool tool,
         string? @namespace = null,
         string? pattern = null,
         CancellationToken cancellationToken = default
     )
     {
-        return DeserializeStructuredContent<ListKeysResultData>(
-            await tool.ListKeysAsync(
-                           @namespace,
-                           pattern,
-                           null,
-                           null,
-                           cancellationToken
-                       )
-                      .ConfigureAwait(false)
+        return tool.ListKeysAsync(
+            @namespace,
+            pattern,
+            null,
+            null,
+            cancellationToken
         );
     }
 
-    public static async Task<DeleteValueResultData> DeleteValueCoreAsync(
+    public static Task<DeleteValueResult> DeleteValueCoreAsync(
         this DeleteValueTool tool,
         string key,
         string? @namespace = null,
         CancellationToken cancellationToken = default
     )
     {
-        return DeserializeStructuredContent<DeleteValueResultData>(
-            await tool.DeleteValueAsync(key, @namespace, cancellationToken)
-                      .ConfigureAwait(false)
-        );
+        return tool.DeleteValueAsync(key, @namespace, cancellationToken);
     }
 
-    public static async Task<PatchValueResultData> PatchValueCoreAsync(
+    public static Task<PatchValueResult> PatchValueCoreAsync(
         this PatchValueTool tool,
         string key,
         JsonPatch patch,
@@ -1711,76 +1618,12 @@ internal static class ToolResponseTestExtensions
         CancellationToken cancellationToken = default
     )
     {
-        return DeserializeStructuredContent<PatchValueResultData>(
-            await tool.PatchValueAsync(
-                           key,
-                           patch,
-                           @namespace,
-                           cancellationToken
-                       )
-                      .ConfigureAwait(false)
+        return tool.PatchValueAsync(
+            key,
+            patch,
+            @namespace,
+            cancellationToken
         );
-    }
-
-    private static T DeserializeStructuredContent<T>(CallToolResult result)
-    {
-        var structuredContent = result.StructuredContent
-                             ?? throw new InvalidOperationException("Expected structured content.");
-        return structuredContent.Deserialize<T>()
-            ?? throw new InvalidOperationException($"Failed to deserialize structured content as '{typeof(T).Name}'.");
-    }
-
-    private static T DeserializeProjectedValuesResult<T>(CallToolResult result)
-        where T : class
-    {
-        var structuredContent = result.StructuredContent
-                             ?? throw new InvalidOperationException("Expected structured content.");
-        var @namespace = structuredContent.GetProperty("namespace")
-                                          .GetString()
-                      ?? throw new InvalidOperationException("Expected namespace.");
-        var nextCursor =
-            structuredContent.TryGetProperty("nextCursor", out var nextCursorElement)
-         && nextCursorElement.ValueKind != JsonValueKind.Null
-              ? nextCursorElement.GetString()
-              : null;
-        Dictionary<string, GetValuesEntryData> values = new(StringComparer.Ordinal);
-        foreach (var property in structuredContent.GetProperty("values")
-                                                  .EnumerateObject())
-        {
-            var entry = property.Value;
-            values[property.Name] = new GetValuesEntryData
-            {
-                Found = entry.GetProperty("found")
-                             .GetBoolean(),
-                PathFound = entry.GetProperty("pathFound")
-                                 .GetBoolean(),
-                Value = entry.TryGetProperty("value", out var valueElement) ? valueElement.Clone() : null,
-                ExpiresAt = entry.TryGetProperty("expiresAt", out var expiresAtElement)
-                         && expiresAtElement.ValueKind != JsonValueKind.Null
-                  ? expiresAtElement.GetString()
-                  : null,
-                UpdatedAt = entry.TryGetProperty("updatedAt", out var updatedAtElement)
-                         && updatedAtElement.ValueKind != JsonValueKind.Null
-                  ? updatedAtElement.GetString()
-                  : null,
-                Revision = entry.TryGetProperty("revision", out var revisionElement)
-                        && revisionElement.ValueKind != JsonValueKind.Null
-                  ? revisionElement.GetInt64()
-                  : null
-            };
-        }
-        return typeof(T) == typeof(GetValuesResultData) ? (T)(object)new GetValuesResultData
-            {
-                Namespace = @namespace,
-                Values = values,
-                NextCursor = nextCursor
-            } :
-            typeof(T) == typeof(QueryValuesResultData) ? (T)(object)new QueryValuesResultData
-            {
-                Namespace = @namespace,
-                Values = values,
-                NextCursor = nextCursor
-            } : throw new InvalidOperationException($"Unsupported result type '{typeof(T).Name}'.");
     }
 
     private static JsonElement ParseJsonElement(string json)

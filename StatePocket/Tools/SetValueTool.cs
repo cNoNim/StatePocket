@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using System.Text.Json;
 using ModelContextProtocol;
-using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
 using StatePocket.Storage;
@@ -11,12 +10,18 @@ namespace StatePocket.Tools;
 internal sealed class SetValueTool(IKvStore kvStore)
 {
     public const string ToolName = "set_value";
+    private const string ToolTitle = "Set Value";
 
-    [McpServerTool(Name = ToolName)]
+    [McpServerTool(
+        Name = ToolName,
+        Title = ToolTitle,
+        OpenWorld = false,
+        UseStructuredContent = true
+    )]
     [Description(
         "Stores a JSON value under a key in the selected namespace, creating the key or replacing its current value."
     )]
-    internal async Task<CallToolResult> SetValueAsync(
+    internal async Task<SetValueResult> SetValueAsync(
         [Description("Key to create or replace.")] string key,
         [Description("JSON value to store.")] JsonElement value,
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
@@ -29,7 +34,7 @@ internal sealed class SetValueTool(IKvStore kvStore)
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedNamespace = ToolResultFactory.NormalizeNamespace(@namespace);
+        var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
         SetValueMetadata storedValue;
         try
         {
@@ -56,7 +61,7 @@ internal sealed class SetValueTool(IKvStore kvStore)
         {
             throw new McpException(exception.Message, exception);
         }
-        var result = new SetValueResultData
+        return new SetValueResult
         {
             Namespace = normalizedNamespace,
             Key = key,
@@ -64,6 +69,5 @@ internal sealed class SetValueTool(IKvStore kvStore)
             UpdatedAt = storedValue.UpdatedAt,
             Revision = storedValue.Revision
         };
-        return ToolResultFactory.Success(result);
     }
 }

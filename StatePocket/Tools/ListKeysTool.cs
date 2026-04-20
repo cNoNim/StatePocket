@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
 using StatePocket.Storage;
@@ -9,10 +8,17 @@ namespace StatePocket.Tools;
 internal sealed class ListKeysTool(IKvStore kvStore)
 {
     public const string ToolName = "list_keys";
+    private const string ToolTitle = "List Keys";
 
-    [McpServerTool(Name = ToolName, ReadOnly = true)]
+    [McpServerTool(
+        Name = ToolName,
+        Title = ToolTitle,
+        ReadOnly = true,
+        OpenWorld = false,
+        UseStructuredContent = true
+    )]
     [Description("Lists keys in the selected namespace, optionally filtered by a wildcard pattern.")]
-    internal async Task<CallToolResult> ListKeysAsync(
+    internal async Task<ListKeysResult> ListKeysAsync(
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
         [Description("Optional wildcard key pattern, for example 'user:*'.")] string? pattern = null,
         [Description("Maximum number of keys to return. Defaults to 50 and must be less than or equal to 100.")]
@@ -24,8 +30,8 @@ internal sealed class ListKeysTool(IKvStore kvStore)
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedNamespace = ToolResultFactory.NormalizeNamespace(@namespace);
-        var normalizedLimit = ToolResultFactory.NormalizeLimit(limit);
+        var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
+        var normalizedLimit = ToolArgumentHelper.NormalizeLimit(limit);
         var page = await kvStore.ListKeysPageAsync(
                                      normalizedNamespace,
                                      pattern,
@@ -34,12 +40,11 @@ internal sealed class ListKeysTool(IKvStore kvStore)
                                      cancellationToken
                                  )
                                 .ConfigureAwait(false);
-        var result = new ListKeysResultData
+        return new ListKeysResult
         {
             Namespace = normalizedNamespace,
             Keys = page.Items,
             NextCursor = page.NextCursor
         };
-        return ToolResultFactory.Success(result);
     }
 }

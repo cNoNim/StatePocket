@@ -54,6 +54,22 @@ public sealed class CliApplicationTests
                     .GetString()
         );
         Assert.Equal(
+            "Set Value",
+            document.RootElement.GetProperty("title")
+                    .GetString()
+        );
+        Assert.Equal(
+            "Set Value",
+            document.RootElement.GetProperty("annotations")
+                    .GetProperty("title")
+                    .GetString()
+        );
+        Assert.False(
+            document.RootElement.GetProperty("annotations")
+                    .GetProperty("openWorldHint")
+                    .GetBoolean()
+        );
+        Assert.Equal(
             "JSON value to store.",
             document.RootElement.GetProperty("inputSchema")
                     .GetProperty("properties")
@@ -102,6 +118,19 @@ public sealed class CliApplicationTests
             document.RootElement.GetProperty("inputSchema")
                     .GetProperty("properties")
                     .TryGetProperty("ttl_seconds", out _)
+        );
+        Assert.Equal(
+            ["namespace", "key", "updatedAt", "revision"],
+            [
+                .. document.RootElement.GetProperty("outputSchema")
+                           .GetProperty("required")
+                           .EnumerateArray()
+                           .Select(static value => value.GetString()!)
+            ]
+        );
+        Assert.False(
+            document.RootElement.GetProperty("outputSchema")
+                    .TryGetProperty("allOf", out _)
         );
     }
 
@@ -158,6 +187,37 @@ public sealed class CliApplicationTests
             "get_value",
             document.RootElement.GetProperty("name")
                     .GetString()
+        );
+        Assert.Equal(
+            "Get Value",
+            document.RootElement.GetProperty("title")
+                    .GetString()
+        );
+        Assert.Equal(
+            "Get Value",
+            document.RootElement.GetProperty("annotations")
+                    .GetProperty("title")
+                    .GetString()
+        );
+        Assert.False(
+            document.RootElement.GetProperty("annotations")
+                    .GetProperty("openWorldHint")
+                    .GetBoolean()
+        );
+        Assert.True(
+            document.RootElement.GetProperty("annotations")
+                    .GetProperty("readOnlyHint")
+                    .GetBoolean()
+        );
+        Assert.True(
+            document.RootElement.GetProperty("outputSchema")
+                    .GetProperty("properties")
+                    .TryGetProperty("pathFound", out _)
+        );
+        Assert.True(
+            document.RootElement.GetProperty("outputSchema")
+                    .GetProperty("properties")
+                    .TryGetProperty("value", out _)
         );
     }
 

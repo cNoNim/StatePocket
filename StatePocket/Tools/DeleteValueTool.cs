@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using ModelContextProtocol;
-using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
 using StatePocket.Storage;
@@ -10,16 +9,22 @@ namespace StatePocket.Tools;
 internal sealed class DeleteValueTool(IKvStore kvStore)
 {
     public const string ToolName = "delete_value";
+    private const string ToolTitle = "Delete Value";
 
-    [McpServerTool(Name = ToolName)]
+    [McpServerTool(
+        Name = ToolName,
+        Title = ToolTitle,
+        OpenWorld = false,
+        UseStructuredContent = true
+    )]
     [Description("Deletes a key from the selected namespace.")]
-    internal async Task<CallToolResult> DeleteValueAsync(
+    internal async Task<DeleteValueResult> DeleteValueAsync(
         [Description("Key to delete.")] string key,
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedNamespace = ToolResultFactory.NormalizeNamespace(@namespace);
+        var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
         bool deleted;
         try
         {
@@ -34,11 +39,10 @@ internal sealed class DeleteValueTool(IKvStore kvStore)
         {
             throw new McpException($"Key '{key}' was not found in namespace '{normalizedNamespace}'.");
         }
-        var result = new DeleteValueResultData
+        return new DeleteValueResult
         {
             Namespace = normalizedNamespace,
             Key = key
         };
-        return ToolResultFactory.Success(result);
     }
 }

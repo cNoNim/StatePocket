@@ -2,13 +2,14 @@ using System.Text.Json.Serialization;
 
 namespace StatePocket.Contracts;
 
-[JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Serialization)]
-[JsonSerializable(typeof(DeleteValueResultData))]
-[JsonSerializable(typeof(GetValueResultData))]
-[JsonSerializable(typeof(GetValuesResultData))]
-[JsonSerializable(typeof(ListKeysResultData))]
-[JsonSerializable(typeof(ListNamespacesResultData))]
-[JsonSerializable(typeof(PatchValueResultData))]
-[JsonSerializable(typeof(QueryValuesResultData))]
-[JsonSerializable(typeof(SetValueResultData))]
+[JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata)]
+[JsonSerializable(typeof(DeleteValueResult))]
+[JsonSerializable(typeof(GetValueResult))]
+[JsonSerializable(typeof(GetValuesEntry))]
+[JsonSerializable(typeof(GetValuesResult))]
+[JsonSerializable(typeof(ListKeysResult))]
+[JsonSerializable(typeof(ListNamespacesResult))]
+[JsonSerializable(typeof(PatchValueResult))]
+[JsonSerializable(typeof(QueryValuesResult))]
+[JsonSerializable(typeof(SetValueResult))]
 internal sealed partial class ToolResultJsonContext : JsonSerializerContext;

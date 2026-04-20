@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace StatePocket.Contracts;
 
-internal sealed record GetValueResultData
+internal sealed record GetValueResult
 {
     [JsonPropertyName("namespace")]
     public required string Namespace { get; init; }

@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
 using StatePocket.Json.Pointer;
@@ -10,10 +9,17 @@ namespace StatePocket.Tools;
 internal sealed class GetValueTool(IKvStore kvStore)
 {
     public const string ToolName = "get_value";
+    private const string ToolTitle = "Get Value";
 
-    [McpServerTool(Name = ToolName, ReadOnly = true)]
+    [McpServerTool(
+        Name = ToolName,
+        Title = ToolTitle,
+        ReadOnly = true,
+        OpenWorld = false,
+        UseStructuredContent = true
+    )]
     [Description("Retrieves a single value by key from the selected namespace, with optional JSON Pointer projection.")]
-    internal async Task<CallToolResult> GetValueAsync(
+    internal async Task<GetValueResult> GetValueAsync(
         [Description("Key to retrieve.")] string key,
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
         [Description(
@@ -23,11 +29,11 @@ internal sealed class GetValueTool(IKvStore kvStore)
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedNamespace = ToolResultFactory.NormalizeNamespace(@namespace);
+        var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
         var value = await kvStore.GetValueAsync(normalizedNamespace, key, cancellationToken)
                                  .ConfigureAwait(false);
         var projectedValue = GetValuesTool.ProjectValue(value, path);
-        var result = new GetValueResultData
+        return new GetValueResult
         {
             Namespace = normalizedNamespace,
             Key = key,
@@ -38,6 +44,5 @@ internal sealed class GetValueTool(IKvStore kvStore)
             UpdatedAt = projectedValue.UpdatedAt,
             Revision = projectedValue.Revision
         };
-        return ToolResultFactory.Success(result);
     }
 }
