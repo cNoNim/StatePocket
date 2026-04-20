@@ -62,6 +62,72 @@ public sealed class StatePocketMcpToolFactoryTests
     }
 
     [Fact]
+    public void SetValue_ExposesConditionalWriteParameters()
+    {
+        var tool = CreateTool(SetValueTool.ToolName);
+        var properties = tool.ProtocolTool.InputSchema.GetProperty("properties");
+        var expectedRevisionPropertySchema = properties.GetProperty("expectedRevision");
+        var ifAbsentPropertySchema = properties.GetProperty("ifAbsent");
+        Assert.Equal(
+            "Optional expected revision for compare-and-set writes. When provided, the write succeeds only if the current live value has this exact revision.",
+            expectedRevisionPropertySchema.GetProperty("description")
+                                          .GetString()
+        );
+        Assert.Equal(
+            ["integer", "null"],
+            [
+                .. expectedRevisionPropertySchema.GetProperty("type")
+                                                 .EnumerateArray()
+                                                 .Select(static value => value.GetString()!)
+            ]
+        );
+        Assert.Equal(
+            "When true, create the key only if no live value currently exists.",
+            ifAbsentPropertySchema.GetProperty("description")
+                                  .GetString()
+        );
+        Assert.Equal(
+            "boolean",
+            ifAbsentPropertySchema.GetProperty("type")
+                                  .GetString()
+        );
+        Assert.False(
+            ifAbsentPropertySchema.GetProperty("default")
+                                  .GetBoolean()
+        );
+    }
+
+    [Fact]
+    public void SetValue_SchemaRejectsExpectedRevisionWhenIfAbsentIsTrue()
+    {
+        var tool = CreateTool(SetValueTool.ToolName);
+        var constraintSchema = tool.ProtocolTool.InputSchema.GetProperty("allOf")[0]
+                                   .GetProperty("not");
+        Assert.Equal(
+            ["expectedRevision", "ifAbsent"],
+            [
+                .. constraintSchema.GetProperty("required")
+                                   .EnumerateArray()
+                                   .Select(static value => value.GetString()!)
+            ]
+        );
+        Assert.Equal(
+            "null",
+            constraintSchema.GetProperty("properties")
+                            .GetProperty("expectedRevision")
+                            .GetProperty("not")
+                            .GetProperty("type")
+                            .GetString()
+        );
+        Assert.True(
+            constraintSchema.GetProperty("properties")
+                            .GetProperty("ifAbsent")
+                            .TryGetProperty("const", out var constValue)
+        );
+        Assert.True(constValue.GetBoolean());
+    }
+
+    [Fact]
     public void PatchValue_ExposesTypedPatchSchema()
     {
         var tool = CreateTool(PatchValueTool.ToolName);
@@ -327,7 +393,9 @@ public sealed class StatePocketMcpToolFactoryTests
             string key,
             JsonElement value,
             long? ttlSeconds,
-            CancellationToken cancellationToken
+            long? expectedRevision = null,
+            bool ifAbsent = false,
+            CancellationToken cancellationToken = default
         )
         {
             throw new NotSupportedException();

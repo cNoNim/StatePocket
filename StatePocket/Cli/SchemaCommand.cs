@@ -107,7 +107,9 @@ internal static class SchemaCommand
             string key,
             JsonElement value,
             long? ttlSeconds,
-            CancellationToken cancellationToken
+            long? expectedRevision = null,
+            bool ifAbsent = false,
+            CancellationToken cancellationToken = default
         )
         {
             throw new NotSupportedException();

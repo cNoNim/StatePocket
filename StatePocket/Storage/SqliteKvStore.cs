@@ -18,57 +18,47 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
     private const int SqliteBusyErrorCode = 5;
     private const int SqliteLockedErrorCode = 6;
     private const int SqliteBusyTimeoutSeconds = 1;
+    private const string NamespaceRevisionTableName = "kv_namespace_revision";
 
     public Task<SetValueMetadata> SetValueAsync(
         string? @namespace,
         string key,
         JsonElement value,
         long? ttlSeconds,
-        CancellationToken cancellationToken
+        long? expectedRevision = null,
+        bool ifAbsent = false,
+        CancellationToken cancellationToken = default
     )
     {
         if (ttlSeconds < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(ttlSeconds), "ttlSeconds must be greater than or equal to 0.");
         }
+        if (expectedRevision < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(expectedRevision),
+                "expectedRevision must be greater than or equal to 0."
+            );
+        }
+        if (ifAbsent && expectedRevision is not null)
+        {
+            throw new ArgumentException("ifAbsent cannot be combined with expectedRevision.", nameof(ifAbsent));
+        }
         if (value.ValueKind == JsonValueKind.Undefined)
         {
             throw new ArgumentException("value is required.", nameof(value));
         }
-        var now = timeProvider.GetUtcNow();
-        var formattedNow = FormatTimestamp(now);
-        var expiresAt = ttlSeconds is not null ? FormatTimestamp(now.AddSeconds(ttlSeconds.Value)) : null;
-        return ExecuteWriteAsync(async () =>
-            {
-                var connection = await OpenWriteConnectionAsync(cancellationToken)
-                   .ConfigureAwait(false);
-                await using (connection.ConfigureAwait(false))
-                {
-                    var command = connection.CreateCommand();
-                    await using (command.ConfigureAwait(false))
-                    {
-                        command.CommandText = """
-                                              INSERT INTO kv(namespace, key, value, expires_at, updated_at)
-                                              VALUES ($namespace, $key, $value, $expires_at, $updated_at)
-                                              ON CONFLICT(namespace, key) DO UPDATE SET
-                                                  value = excluded.value,
-                                                  expires_at = excluded.expires_at,
-                                                  updated_at = excluded.updated_at;
-                                              """;
-                        command.Parameters.AddWithValue("$namespace", NormalizeNamespace(@namespace));
-                        command.Parameters.AddWithValue("$key", key);
-                        command.Parameters.AddWithValue("$value", value.GetRawText());
-                        command.Parameters.AddWithValue("$expires_at", (object?)expiresAt ?? DBNull.Value);
-                        command.Parameters.AddWithValue("$updated_at", formattedNow);
-                        await command.ExecuteNonQueryAsync(cancellationToken)
-                                     .ConfigureAwait(false);
-                    }
-                }
-                return new SetValueMetadata
-                {
-                    ExpiresAt = expiresAt
-                };
-            }
+        var normalizedNamespace = NormalizeNamespace(@namespace);
+        return ExecuteWriteAsync(() => ExecuteSetValueCoreAsync(
+                normalizedNamespace,
+                key,
+                value.GetRawText(),
+                ttlSeconds,
+                expectedRevision,
+                ifAbsent,
+                cancellationToken
+            )
         );
     }
 
@@ -84,7 +74,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
             await using (command.ConfigureAwait(false))
             {
                 command.CommandText = """
-                                      SELECT value, expires_at
+                                      SELECT value, expires_at, updated_at, revision
                                       FROM kv
                                       WHERE namespace = $namespace
                                         AND key = $key
@@ -108,7 +98,9 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
                         ExpiresAt = await reader.IsDBNullAsync(1, cancellationToken)
                                                 .ConfigureAwait(false)
                           ? null
-                          : reader.GetString(1)
+                          : reader.GetString(1),
+                        UpdatedAt = reader.GetString(2),
+                        Revision = reader.GetInt64(3)
                     };
                 }
             }
@@ -179,7 +171,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
             await using (command.ConfigureAwait(false))
             {
                 command.CommandText = """
-                                      SELECT key, value, expires_at
+                                      SELECT key, value, expires_at, updated_at, revision
                                       FROM kv
                                       WHERE namespace = $namespace
                                         AND (expires_at IS NULL OR expires_at > $now)
@@ -210,7 +202,9 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
                                     ExpiresAt = await reader.IsDBNullAsync(2, cancellationToken)
                                                             .ConfigureAwait(false)
                                       ? null
-                                      : reader.GetString(2)
+                                      : reader.GetString(2),
+                                    UpdatedAt = reader.GetString(3),
+                                    Revision = reader.GetInt64(4)
                                 }
                             )
                         );
@@ -408,7 +402,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
             await using (command.ConfigureAwait(false))
             {
                 command.CommandText = """
-                                      SELECT key, value, expires_at
+                                      SELECT key, value, expires_at, updated_at, revision
                                       FROM kv
                                       WHERE namespace = $namespace
                                         AND (expires_at IS NULL OR expires_at > $now)
@@ -432,7 +426,9 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
                             ExpiresAt = await reader.IsDBNullAsync(2, cancellationToken)
                                                     .ConfigureAwait(false)
                               ? null
-                              : reader.GetString(2)
+                              : reader.GetString(2),
+                            UpdatedAt = reader.GetString(3),
+                            Revision = reader.GetInt64(4)
                         };
                     }
                 }
@@ -639,9 +635,193 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
                     ExpiresAt = await reader.IsDBNullAsync(2, cancellationToken)
                                             .ConfigureAwait(false)
                       ? null
-                      : reader.GetString(2)
+                      : reader.GetString(2),
+                    UpdatedAt = reader.GetString(3),
+                    Revision = reader.GetInt64(4)
                 };
             }
+        }
+    }
+
+    private async Task<SetValueMetadata> ExecuteSetValueCoreAsync(
+        string @namespace,
+        string key,
+        string rawJson,
+        long? ttlSeconds,
+        long? expectedRevision,
+        bool ifAbsent,
+        CancellationToken cancellationToken
+    )
+    {
+        var connection = await OpenWriteConnectionAsync(cancellationToken)
+           .ConfigureAwait(false);
+        await using (connection.ConfigureAwait(false))
+        {
+            var transaction = connection.BeginTransaction(false);
+            await using (transaction.ConfigureAwait(false))
+            {
+                try
+                {
+                    var now = timeProvider.GetUtcNow();
+                    var updatedAt = FormatTimestamp(now);
+                    var expiresAt = ttlSeconds is not null ? FormatTimestamp(now.AddSeconds(ttlSeconds.Value)) : null;
+                    var storedValue = await WriteSetValueAsync(
+                            connection,
+                            transaction,
+                            @namespace,
+                            key,
+                            rawJson,
+                            expiresAt,
+                            updatedAt,
+                            expectedRevision,
+                            ifAbsent,
+                            cancellationToken
+                        )
+                       .ConfigureAwait(false);
+                    await transaction.CommitAsync(cancellationToken)
+                                     .ConfigureAwait(false);
+                    return storedValue;
+                }
+                catch
+                {
+                    await transaction.RollbackAsync(cancellationToken)
+                                     .ConfigureAwait(false);
+                    throw;
+                }
+            }
+        }
+    }
+
+    private static async Task<SetValueMetadata> WriteSetValueAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string @namespace,
+        string key,
+        string rawJson,
+        string? expiresAt,
+        string updatedAt,
+        long? expectedRevision,
+        bool ifAbsent,
+        CancellationToken cancellationToken
+    )
+    {
+        var currentEntry = await LoadStoredMetadataAsync(
+                connection,
+                transaction,
+                @namespace,
+                key,
+                cancellationToken
+            )
+           .ConfigureAwait(false);
+        ValidateSetRevision(
+            currentEntry,
+            key,
+            @namespace,
+            updatedAt,
+            expectedRevision,
+            ifAbsent
+        );
+        var nextRevision = await AllocateNextRevisionAsync(
+                connection,
+                transaction,
+                @namespace,
+                cancellationToken
+            )
+           .ConfigureAwait(false);
+        await PersistSetValueAsync(
+                connection,
+                transaction,
+                currentEntry is null,
+                @namespace,
+                key,
+                rawJson,
+                expiresAt,
+                updatedAt,
+                nextRevision,
+                cancellationToken
+            )
+           .ConfigureAwait(false);
+        return new SetValueMetadata
+        {
+            ExpiresAt = expiresAt,
+            UpdatedAt = updatedAt,
+            Revision = nextRevision
+        };
+    }
+
+    private static Task PersistSetValueAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        bool insert,
+        string @namespace,
+        string key,
+        string rawJson,
+        string? expiresAt,
+        string updatedAt,
+        long revision,
+        CancellationToken cancellationToken
+    )
+    {
+        return insert
+          ? InsertStoredValueAsync(
+                connection,
+                transaction,
+                @namespace,
+                key,
+                rawJson,
+                expiresAt,
+                updatedAt,
+                revision,
+                cancellationToken
+            )
+          : UpdateStoredValueAsync(
+                connection,
+                transaction,
+                @namespace,
+                key,
+                rawJson,
+                expiresAt,
+                updatedAt,
+                revision,
+                cancellationToken
+            );
+    }
+
+    private static void ValidateSetRevision(
+        (string? ExpiresAt, string UpdatedAt, long Revision)? currentEntry,
+        string key,
+        string @namespace,
+        string now,
+        long? expectedRevision,
+        bool ifAbsent
+    )
+    {
+        if (currentEntry is
+                {} liveEntry
+         && IsLiveAt(liveEntry.ExpiresAt, now))
+        {
+            if (ifAbsent)
+            {
+                throw new KvStoreConflictException(
+                    $"Key '{key}' already exists in namespace '{@namespace}'.",
+                    liveEntry.Revision
+                );
+            }
+            if (expectedRevision is not null
+             && liveEntry.Revision != expectedRevision.Value)
+            {
+                throw new KvStoreConflictException(
+                    $"Revision conflict for key '{key}' in namespace '{@namespace}'. Expected revision {expectedRevision.Value}, found {liveEntry.Revision}.",
+                    liveEntry.Revision
+                );
+            }
+            return;
+        }
+        if (expectedRevision is not null)
+        {
+            throw new KvStoreConflictException(
+                $"Revision conflict for key '{key}' in namespace '{@namespace}'. Expected revision {expectedRevision.Value}, but the key does not exist."
+            );
         }
     }
 
@@ -665,29 +845,12 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
             {
                 try
                 {
-                    var currentEntry = await LoadCurrentValueAsync(
+                    var updated = await WritePatchedValueAsync(
                             connection,
                             transaction,
                             @namespace,
                             key,
-                            now,
-                            cancellationToken
-                        )
-                       .ConfigureAwait(false);
-                    if (currentEntry is null)
-                    {
-                        await transaction.CommitAsync(cancellationToken)
-                                         .ConfigureAwait(false);
-                        return null;
-                    }
-                    var updatedValue = patchDocument.Apply(ParseNode(currentEntry.Value.RawJson));
-                    var updatedRawJson = updatedValue?.ToJsonString() ?? "null";
-                    var updated = await PersistUpdatedValueAsync(
-                            connection,
-                            transaction,
-                            @namespace,
-                            key,
-                            updatedRawJson,
+                            patchDocument,
                             updatedAt,
                             now,
                             cancellationToken
@@ -695,13 +858,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
                        .ConfigureAwait(false);
                     await transaction.CommitAsync(cancellationToken)
                                      .ConfigureAwait(false);
-                    return !updated
-                      ? null
-                      : new KvValue
-                        {
-                            Value = ParseJson(updatedRawJson),
-                            ExpiresAt = currentEntry.Value.ExpiresAt
-                        };
+                    return updated;
                 }
                 catch
                 {
@@ -713,10 +870,66 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
         }
     }
 
+    private static async Task<KvValue?> WritePatchedValueAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string @namespace,
+        string key,
+        JsonPatch patchDocument,
+        string updatedAt,
+        string now,
+        CancellationToken cancellationToken
+    )
+    {
+        var currentEntry = await LoadCurrentValueAsync(
+                connection,
+                transaction,
+                @namespace,
+                key,
+                now,
+                cancellationToken
+            )
+           .ConfigureAwait(false);
+        if (currentEntry is null)
+        {
+            return null;
+        }
+        var updatedValue = patchDocument.Apply(ParseNode(currentEntry.Value.RawJson));
+        var updatedRawJson = updatedValue?.ToJsonString() ?? "null";
+        var nextRevision = await AllocateNextRevisionAsync(
+                connection,
+                transaction,
+                @namespace,
+                cancellationToken
+            )
+           .ConfigureAwait(false);
+        var updated = await PersistUpdatedValueAsync(
+                connection,
+                transaction,
+                @namespace,
+                key,
+                updatedRawJson,
+                updatedAt,
+                nextRevision,
+                now,
+                cancellationToken
+            )
+           .ConfigureAwait(false);
+        return !updated
+          ? null
+          : new KvValue
+            {
+                Value = ParseJson(updatedRawJson),
+                ExpiresAt = currentEntry.Value.ExpiresAt,
+                UpdatedAt = updatedAt,
+                Revision = nextRevision
+            };
+    }
+
     private static string CreateBatchGetCommandText(int keyCount)
     {
         return $"""
-                SELECT key, value, expires_at
+                SELECT key, value, expires_at, updated_at, revision
                 FROM kv
                 WHERE namespace = $namespace
                   AND key IN ({string.Join(", ", Enumerable.Range(0, keyCount).Select(static index => $"$key{index}"))})
@@ -735,21 +948,27 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
         return JsonNode.Parse(rawJson);
     }
 
-    private static async Task<(string RawJson, string? ExpiresAt)?> LoadCurrentValueAsync(
-        SqliteConnection connection,
-        SqliteTransaction transaction,
-        string @namespace,
-        string key,
-        string now,
-        CancellationToken cancellationToken
-    )
+    private static bool IsLiveAt(string? expiresAt, string now)
+    {
+        return expiresAt is null || string.CompareOrdinal(expiresAt, now) > 0;
+    }
+
+    private static async Task<(string RawJson, string? ExpiresAt, string UpdatedAt, long Revision)?>
+        LoadCurrentValueAsync(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            string @namespace,
+            string key,
+            string now,
+            CancellationToken cancellationToken
+        )
     {
         var command = connection.CreateCommand();
         await using (command.ConfigureAwait(false))
         {
             command.Transaction = transaction;
             command.CommandText = """
-                                  SELECT value, expires_at
+                                  SELECT value, expires_at, updated_at, revision
                                   FROM kv
                                   WHERE namespace = $namespace
                                     AND key = $key
@@ -770,8 +989,139 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
                 return (reader.GetString(0), await reader.IsDBNullAsync(1, cancellationToken)
                                                          .ConfigureAwait(false)
                           ? null
-                          : reader.GetString(1));
+                          : reader.GetString(1), reader.GetString(2), reader.GetInt64(3));
             }
+        }
+    }
+
+    private static async Task<(string? ExpiresAt, string UpdatedAt, long Revision)?> LoadStoredMetadataAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string @namespace,
+        string key,
+        CancellationToken cancellationToken
+    )
+    {
+        var command = connection.CreateCommand();
+        await using (command.ConfigureAwait(false))
+        {
+            command.Transaction = transaction;
+            command.CommandText = """
+                                  SELECT expires_at, updated_at, revision
+                                  FROM kv
+                                  WHERE namespace = $namespace
+                                    AND key = $key;
+                                  """;
+            command.Parameters.AddWithValue("$namespace", @namespace);
+            command.Parameters.AddWithValue("$key", key);
+            var reader = await command.ExecuteReaderAsync(cancellationToken)
+                                      .ConfigureAwait(false);
+            await using (reader.ConfigureAwait(false))
+            {
+                if (!await reader.ReadAsync(cancellationToken)
+                                 .ConfigureAwait(false))
+                {
+                    return null;
+                }
+                return (await reader.IsDBNullAsync(0, cancellationToken)
+                                    .ConfigureAwait(false)
+                          ? null
+                          : reader.GetString(0), reader.GetString(1), reader.GetInt64(2));
+            }
+        }
+    }
+
+    private static async Task<long> AllocateNextRevisionAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string @namespace,
+        CancellationToken cancellationToken
+    )
+    {
+        var command = connection.CreateCommand();
+        await using (command.ConfigureAwait(false))
+        {
+            command.Transaction = transaction;
+            command.CommandText = $"""
+                                   INSERT INTO {NamespaceRevisionTableName}(namespace, last_revision)
+                                   VALUES ($namespace, 1)
+                                   ON CONFLICT(namespace) DO UPDATE SET
+                                       last_revision = last_revision + 1
+                                   RETURNING last_revision;
+                                   """;
+            command.Parameters.AddWithValue("$namespace", @namespace);
+            var result = await command.ExecuteScalarAsync(cancellationToken)
+                                      .ConfigureAwait(false);
+            return result is null
+              ? throw new InvalidOperationException("Expected namespace revision clock to return a value.")
+              : Convert.ToInt64(result, CultureInfo.InvariantCulture);
+        }
+    }
+
+    private static async Task InsertStoredValueAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string @namespace,
+        string key,
+        string rawJson,
+        string? expiresAt,
+        string updatedAt,
+        long revision,
+        CancellationToken cancellationToken
+    )
+    {
+        var command = connection.CreateCommand();
+        await using (command.ConfigureAwait(false))
+        {
+            command.Transaction = transaction;
+            command.CommandText = """
+                                  INSERT INTO kv(namespace, key, value, expires_at, updated_at, revision)
+                                  VALUES ($namespace, $key, $value, $expires_at, $updated_at, $revision);
+                                  """;
+            command.Parameters.AddWithValue("$namespace", @namespace);
+            command.Parameters.AddWithValue("$key", key);
+            command.Parameters.AddWithValue("$value", rawJson);
+            command.Parameters.AddWithValue("$expires_at", (object?)expiresAt ?? DBNull.Value);
+            command.Parameters.AddWithValue("$updated_at", updatedAt);
+            command.Parameters.AddWithValue("$revision", revision);
+            await command.ExecuteNonQueryAsync(cancellationToken)
+                         .ConfigureAwait(false);
+        }
+    }
+
+    private static async Task UpdateStoredValueAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string @namespace,
+        string key,
+        string rawJson,
+        string? expiresAt,
+        string updatedAt,
+        long revision,
+        CancellationToken cancellationToken
+    )
+    {
+        var command = connection.CreateCommand();
+        await using (command.ConfigureAwait(false))
+        {
+            command.Transaction = transaction;
+            command.CommandText = """
+                                  UPDATE kv
+                                  SET value = $value,
+                                      expires_at = $expires_at,
+                                      updated_at = $updated_at,
+                                      revision = $revision
+                                  WHERE namespace = $namespace
+                                    AND key = $key;
+                                  """;
+            command.Parameters.AddWithValue("$value", rawJson);
+            command.Parameters.AddWithValue("$expires_at", (object?)expiresAt ?? DBNull.Value);
+            command.Parameters.AddWithValue("$updated_at", updatedAt);
+            command.Parameters.AddWithValue("$revision", revision);
+            command.Parameters.AddWithValue("$namespace", @namespace);
+            command.Parameters.AddWithValue("$key", key);
+            await command.ExecuteNonQueryAsync(cancellationToken)
+                         .ConfigureAwait(false);
         }
     }
 
@@ -782,6 +1132,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
         string key,
         string updatedRawJson,
         string updatedAt,
+        long revision,
         string now,
         CancellationToken cancellationToken
     )
@@ -793,13 +1144,15 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
             command.CommandText = """
                                   UPDATE kv
                                   SET value = $value,
-                                      updated_at = $updated_at
+                                      updated_at = $updated_at,
+                                      revision = $revision
                                   WHERE namespace = $namespace
                                     AND key = $key
                                     AND (expires_at IS NULL OR expires_at > $now);
                                   """;
             command.Parameters.AddWithValue("$value", updatedRawJson);
             command.Parameters.AddWithValue("$updated_at", updatedAt);
+            command.Parameters.AddWithValue("$revision", revision);
             command.Parameters.AddWithValue("$namespace", @namespace);
             command.Parameters.AddWithValue("$key", key);
             command.Parameters.AddWithValue("$now", now);

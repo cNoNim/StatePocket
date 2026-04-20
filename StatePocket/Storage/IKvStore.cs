@@ -10,7 +10,9 @@ internal interface IKvStore
         string key,
         JsonElement value,
         long? ttlSeconds,
-        CancellationToken cancellationToken
+        long? expectedRevision = null,
+        bool ifAbsent = false,
+        CancellationToken cancellationToken = default
     );
 
     public Task<KvValue?> GetValueAsync(string? @namespace, string key, CancellationToken cancellationToken);

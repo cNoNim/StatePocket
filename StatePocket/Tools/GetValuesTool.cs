@@ -74,7 +74,9 @@ internal sealed class GetValuesTool(IKvStore kvStore)
                 Found = true,
                 PathFound = true,
                 Value = storedValue.Value,
-                ExpiresAt = storedValue.ExpiresAt
+                ExpiresAt = storedValue.ExpiresAt,
+                UpdatedAt = storedValue.UpdatedAt,
+                Revision = storedValue.Revision
             };
         }
         return pointer.Value.TryEvaluate(storedValue.Value, out var projectedValue)
@@ -83,13 +85,17 @@ internal sealed class GetValuesTool(IKvStore kvStore)
                 Found = true,
                 PathFound = true,
                 Value = projectedValue,
-                ExpiresAt = storedValue.ExpiresAt
+                ExpiresAt = storedValue.ExpiresAt,
+                UpdatedAt = storedValue.UpdatedAt,
+                Revision = storedValue.Revision
             }
           : new GetValuesEntryData
             {
                 Found = true,
                 PathFound = false,
-                ExpiresAt = storedValue.ExpiresAt
+                ExpiresAt = storedValue.ExpiresAt,
+                UpdatedAt = storedValue.UpdatedAt,
+                Revision = storedValue.Revision
             };
     }
 }

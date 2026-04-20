@@ -34,7 +34,9 @@ internal sealed class GetValueTool(IKvStore kvStore)
             Found = projectedValue.Found,
             PathFound = projectedValue.PathFound,
             Value = projectedValue.Value,
-            ExpiresAt = value?.ExpiresAt
+            ExpiresAt = projectedValue.ExpiresAt,
+            UpdatedAt = projectedValue.UpdatedAt,
+            Revision = projectedValue.Revision
         };
         return ToolResultFactory.Success(result);
     }

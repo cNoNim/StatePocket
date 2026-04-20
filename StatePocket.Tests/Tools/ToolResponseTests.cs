@@ -93,14 +93,14 @@ public sealed class ToolResponseTests : IDisposable
         var result = await tool.SetValueAsync(
             "smoke.test",
             ParseJson("\"ok\""),
-            null,
-            null,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
         var data = DeserializeStructuredContent<SetValueResultData>(result);
         Assert.Equal("default", data.Namespace);
         Assert.Equal("smoke.test", data.Key);
         Assert.Null(data.ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", data.UpdatedAt);
+        Assert.Equal(1, data.Revision);
         AssertTextMatchesStructuredContent(result);
     }
 
@@ -113,12 +113,133 @@ public sealed class ToolResponseTests : IDisposable
             ParseJson("\"ok\""),
             "codex",
             60,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
         var data = DeserializeStructuredContent<SetValueResultData>(result);
         Assert.Equal("codex", data.Namespace);
         Assert.Equal("smoke.test", data.Key);
         Assert.Equal("2026-04-14T10:01:00.0000000Z", data.ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", data.UpdatedAt);
+        Assert.Equal(1, data.Revision);
+        AssertTextMatchesStructuredContent(result);
+    }
+
+    [Fact]
+    public async Task SetValue_SupportsExpectedRevisionCompareAndSet()
+    {
+        SetValueTool tool = new(_store);
+        var firstWrite = await tool.SetValueAsync(
+            "cas",
+            ParseJson("\"first\""),
+            "codex",
+            cancellationToken: CancellationToken.None
+        );
+        var firstData = DeserializeStructuredContent<SetValueResultData>(firstWrite);
+        var secondWrite = await tool.SetValueAsync(
+            "cas",
+            ParseJson("\"second\""),
+            "codex",
+            expectedRevision: firstData.Revision,
+            cancellationToken: CancellationToken.None
+        );
+        var secondData = DeserializeStructuredContent<SetValueResultData>(secondWrite);
+        Assert.Equal(2, secondData.Revision);
+        AssertTextMatchesStructuredContent(secondWrite);
+    }
+
+    [Fact]
+    public async Task SetValue_ThrowsMcpExceptionWhenExpectedRevisionConflicts()
+    {
+        SetValueTool tool = new(_store);
+        await tool.SetValueAsync(
+            "cas",
+            ParseJson("\"first\""),
+            "codex",
+            cancellationToken: CancellationToken.None
+        );
+        var exception = await Assert.ThrowsAsync<McpException>(() => tool.SetValueAsync(
+                "cas",
+                ParseJson("\"second\""),
+                "codex",
+                expectedRevision: 99,
+                cancellationToken: CancellationToken.None
+            )
+        );
+        Assert.Equal(
+            "Revision conflict for key 'cas' in namespace 'codex'. Expected revision 99, found 1.",
+            exception.Message
+        );
+        Assert.IsType<KvStoreConflictException>(exception.InnerException);
+    }
+
+    [Fact]
+    public async Task SetValue_SupportsIfAbsentWhenKeyDoesNotExist()
+    {
+        SetValueTool tool = new(_store);
+        var result = await tool.SetValueAsync(
+            "claimed",
+            ParseJson("\"first\""),
+            "codex",
+            ifAbsent: true,
+            cancellationToken: CancellationToken.None
+        );
+        var data = DeserializeStructuredContent<SetValueResultData>(result);
+        Assert.Equal(1, data.Revision);
+        AssertTextMatchesStructuredContent(result);
+    }
+
+    [Fact]
+    public async Task SetValue_ThrowsMcpExceptionWhenIfAbsentConflicts()
+    {
+        SetValueTool tool = new(_store);
+        await tool.SetValueAsync(
+            "claimed",
+            ParseJson("\"first\""),
+            "codex",
+            cancellationToken: CancellationToken.None
+        );
+        var exception = await Assert.ThrowsAsync<McpException>(() => tool.SetValueAsync(
+                "claimed",
+                ParseJson("\"second\""),
+                "codex",
+                ifAbsent: true,
+                cancellationToken: CancellationToken.None
+            )
+        );
+        Assert.Equal("Key 'claimed' already exists in namespace 'codex'.", exception.Message);
+        Assert.IsType<KvStoreConflictException>(exception.InnerException);
+    }
+
+    [Fact]
+    public async Task SetValue_ThrowsMcpExceptionWhenIfAbsentIsCombinedWithExpectedRevision()
+    {
+        SetValueTool tool = new(_store);
+        var exception = await Assert.ThrowsAsync<McpException>(() => tool.SetValueAsync(
+                "claimed",
+                ParseJson("\"value\""),
+                "codex",
+                expectedRevision: 1,
+                ifAbsent: true,
+                cancellationToken: CancellationToken.None
+            )
+        );
+        Assert.Equal("ifAbsent cannot be combined with expectedRevision. (Parameter 'ifAbsent')", exception.Message);
+    }
+
+    [Fact]
+    public async Task SetValue_SupportsIfAbsentWhenExpectedRevisionIsExplicitNull()
+    {
+        SetValueTool tool = new(_store);
+        var result = await tool.SetValueAsync(
+            "claimed-null",
+            ParseJson("\"first\""),
+            "codex",
+            expectedRevision: null,
+            ifAbsent: true,
+            cancellationToken: CancellationToken.None
+        );
+        var data = DeserializeStructuredContent<SetValueResultData>(result);
+        Assert.Equal(1, data.Revision);
         AssertTextMatchesStructuredContent(result);
     }
 
@@ -130,9 +251,7 @@ public sealed class ToolResponseTests : IDisposable
         var exception = await Assert.ThrowsAsync<McpException>(() => tool.SetValueAsync(
                 "smoke.test",
                 ParseJson("\"ok\""),
-                null,
-                null,
-                CancellationToken.None
+                cancellationToken: CancellationToken.None
             )
         );
         Assert.Equal("The database is busy with another write operation. Try again.", exception.Message);
@@ -155,6 +274,8 @@ public sealed class ToolResponseTests : IDisposable
         Assert.False(result.PathFound);
         Assert.Null(result.Value);
         Assert.Null(result.ExpiresAt);
+        Assert.Null(result.UpdatedAt);
+        Assert.Null(result.Revision);
     }
 
     [Fact]
@@ -183,6 +304,8 @@ public sealed class ToolResponseTests : IDisposable
         Assert.True(data.Value.HasValue);
         Assert.Equal(JsonValueKind.Object, data.Value.Value.ValueKind);
         Assert.NotNull(data.ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", data.UpdatedAt);
+        Assert.Equal(1, data.Revision);
         AssertTextMatchesStructuredContent(result);
     }
 
@@ -230,6 +353,9 @@ public sealed class ToolResponseTests : IDisposable
         Assert.True(result.Found);
         Assert.False(result.PathFound);
         Assert.Null(result.Value);
+        Assert.Null(result.ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", result.UpdatedAt);
+        Assert.Equal(1, result.Revision);
         var callToolResult = await getTool.GetValueAsync(
             "profile",
             "codex",
@@ -424,9 +550,13 @@ public sealed class ToolResponseTests : IDisposable
         Assert.True(data.Values["one"].Found);
         Assert.True(data.Values["one"].PathFound);
         Assert.NotNull(data.Values["one"].ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", data.Values["one"].UpdatedAt);
+        Assert.Equal(1, data.Values["one"].Revision);
         Assert.True(data.Values["two"].Found);
         Assert.True(data.Values["two"].PathFound);
         Assert.Null(data.Values["two"].ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", data.Values["two"].UpdatedAt);
+        Assert.Equal(2, data.Values["two"].Revision);
         var structuredContent = result.StructuredContent
                              ?? throw new InvalidOperationException("Expected structured content.");
         Assert.Equal(
@@ -440,6 +570,8 @@ public sealed class ToolResponseTests : IDisposable
         Assert.False(data.Values["missing"].PathFound);
         Assert.Null(data.Values["missing"].Value);
         Assert.Null(data.Values["missing"].ExpiresAt);
+        Assert.Null(data.Values["missing"].UpdatedAt);
+        Assert.Null(data.Values["missing"].Revision);
         Assert.Null(data.NextCursor);
         AssertTextMatchesStructuredContent(result);
     }
@@ -566,6 +698,8 @@ public sealed class ToolResponseTests : IDisposable
         Assert.True(data.Values["alpha"].Found);
         Assert.True(data.Values["alpha"].PathFound);
         Assert.NotNull(data.Values["alpha"].ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", data.Values["alpha"].UpdatedAt);
+        Assert.Equal(1, data.Values["alpha"].Revision);
         Assert.Equal(
             "\"A\"",
             data.Values["alpha"]
@@ -924,6 +1058,8 @@ public sealed class ToolResponseTests : IDisposable
         Assert.Equal("profile", data.Key);
         Assert.Equal("{\"name\":\"new\"}", data.Value.GetRawText());
         Assert.Null(data.ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", data.UpdatedAt);
+        Assert.Equal(2, data.Revision);
         AssertTextMatchesStructuredContent(result);
     }
 
@@ -950,6 +1086,8 @@ public sealed class ToolResponseTests : IDisposable
         Assert.Equal("profile", data.Key);
         Assert.Equal("{\"name\":\"new\"}", data.Value.GetRawText());
         Assert.Equal("2026-04-14T10:01:00.0000000Z", data.ExpiresAt);
+        Assert.Equal("2026-04-14T10:00:00.0000000Z", data.UpdatedAt);
+        Assert.Equal(2, data.Revision);
         AssertTextMatchesStructuredContent(result);
     }
 
@@ -1084,6 +1222,24 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
+    public async Task SetValueCore_ThrowsMcpExceptionForInvalidExpectedRevision()
+    {
+        SetValueTool tool = new(_store);
+        var exception = await Assert.ThrowsAsync<McpException>(() => tool.SetValueAsync(
+                "bad",
+                ParseJson("\"value\""),
+                "codex",
+                expectedRevision: -1,
+                cancellationToken: CancellationToken.None
+            )
+        );
+        Assert.Equal(
+            "expectedRevision must be greater than or equal to 0. (Parameter 'expectedRevision')",
+            exception.Message
+        );
+    }
+
+    [Fact]
     public Task SetValueCore_ThrowsMcpExceptionWhenNamespaceIsInvalid()
     {
         SetValueTool tool = new(_store);
@@ -1183,11 +1339,15 @@ public sealed class ToolResponseTests : IDisposable
                 Found = true,
                 PathFound = true,
                 Value = ParseJson("\"value\""),
-                ExpiresAt = "2026-04-14T10:01:00.0000000Z"
+                ExpiresAt = "2026-04-14T10:01:00.0000000Z",
+                UpdatedAt = "2026-04-14T10:00:00.0000000Z",
+                Revision = 1
             }
         );
         Assert.True(json.TryGetProperty("pathFound", out _));
         Assert.True(json.TryGetProperty("expiresAt", out _));
+        Assert.True(json.TryGetProperty("updatedAt", out _));
+        Assert.True(json.TryGetProperty("revision", out _));
         Assert.False(json.TryGetProperty("path_found", out _));
     }
 
@@ -1199,10 +1359,14 @@ public sealed class ToolResponseTests : IDisposable
             {
                 Namespace = "codex",
                 Key = "key",
-                ExpiresAt = "2026-04-14T10:01:00.0000000Z"
+                ExpiresAt = "2026-04-14T10:01:00.0000000Z",
+                UpdatedAt = "2026-04-14T10:00:00.0000000Z",
+                Revision = 1
             }
         );
         Assert.True(json.TryGetProperty("expiresAt", out _));
+        Assert.True(json.TryGetProperty("updatedAt", out _));
+        Assert.True(json.TryGetProperty("revision", out _));
         Assert.False(json.TryGetProperty("expires_at", out _));
     }
 
@@ -1215,10 +1379,14 @@ public sealed class ToolResponseTests : IDisposable
                 Namespace = "codex",
                 Key = "key",
                 Value = ParseJson("\"value\""),
-                ExpiresAt = "2026-04-14T10:01:00.0000000Z"
+                ExpiresAt = "2026-04-14T10:01:00.0000000Z",
+                UpdatedAt = "2026-04-14T10:00:00.0000000Z",
+                Revision = 2
             }
         );
         Assert.True(json.TryGetProperty("expiresAt", out _));
+        Assert.True(json.TryGetProperty("updatedAt", out _));
+        Assert.True(json.TryGetProperty("revision", out _));
         Assert.False(json.TryGetProperty("expires_at", out _));
     }
 
@@ -1231,11 +1399,15 @@ public sealed class ToolResponseTests : IDisposable
                 Found = true,
                 PathFound = true,
                 Value = ParseJson("\"value\""),
-                ExpiresAt = "2026-04-14T10:01:00.0000000Z"
+                ExpiresAt = "2026-04-14T10:01:00.0000000Z",
+                UpdatedAt = "2026-04-14T10:00:00.0000000Z",
+                Revision = 1
             }
         );
         Assert.True(json.TryGetProperty("pathFound", out _));
         Assert.True(json.TryGetProperty("expiresAt", out _));
+        Assert.True(json.TryGetProperty("updatedAt", out _));
+        Assert.True(json.TryGetProperty("revision", out _));
         Assert.False(json.TryGetProperty("path_found", out _));
     }
 
@@ -1428,7 +1600,7 @@ internal static class ToolResponseTestExtensions
                            value,
                            @namespace,
                            ttlSeconds,
-                           cancellationToken
+                           cancellationToken: cancellationToken
                        )
                       .ConfigureAwait(false)
         );
@@ -1586,6 +1758,14 @@ internal static class ToolResponseTestExtensions
                 ExpiresAt = entry.TryGetProperty("expiresAt", out var expiresAtElement)
                          && expiresAtElement.ValueKind != JsonValueKind.Null
                   ? expiresAtElement.GetString()
+                  : null,
+                UpdatedAt = entry.TryGetProperty("updatedAt", out var updatedAtElement)
+                         && updatedAtElement.ValueKind != JsonValueKind.Null
+                  ? updatedAtElement.GetString()
+                  : null,
+                Revision = entry.TryGetProperty("revision", out var revisionElement)
+                        && revisionElement.ValueKind != JsonValueKind.Null
+                  ? revisionElement.GetInt64()
                   : null
             };
         }

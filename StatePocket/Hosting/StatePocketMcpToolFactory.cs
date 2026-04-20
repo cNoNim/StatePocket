@@ -6,13 +6,13 @@ using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using StatePocket.Json.Patch;
 using StatePocket.Json.Pointer;
+using StatePocket.Tools;
 
 namespace StatePocket.Hosting;
 
 internal static class StatePocketMcpToolFactory
 {
     private static readonly JsonSerializerOptions SerializerOptions = CreateSerializerOptions();
-    private static readonly AIJsonSchemaCreateOptions SchemaCreateOptions = CreateSchemaCreateOptions();
 
     internal static McpServerTool Create(Delegate method, IServiceProvider services)
     {
@@ -24,16 +24,17 @@ internal static class StatePocketMcpToolFactory
     {
         ArgumentNullException.ThrowIfNull(method);
         ArgumentNullException.ThrowIfNull(services);
-        return McpServerTool.Create(
+        var tool = McpServerTool.Create(
             method,
             target,
             new McpServerToolCreateOptions
             {
                 Services = services,
                 SerializerOptions = SerializerOptions,
-                SchemaCreateOptions = SchemaCreateOptions
+                SchemaCreateOptions = CreateSchemaCreateOptions(method)
             }
         );
+        return tool;
     }
 
     private static JsonObject CreateAnyJsonSchema(JsonObject? existing)
@@ -176,6 +177,50 @@ internal static class StatePocketMcpToolFactory
         return schema;
     }
 
+    private static JsonObject CreateSetValueMutualExclusionSchema()
+    {
+        return new JsonObject
+        {
+            ["not"] = new JsonObject
+            {
+                ["required"] = new JsonArray(JsonValue.Create("expectedRevision"), JsonValue.Create("ifAbsent")),
+                ["properties"] = new JsonObject
+                {
+                    ["expectedRevision"] = new JsonObject
+                    {
+                        ["not"] = new JsonObject
+                        {
+                            ["type"] = JsonValue.Create("null")
+                        }
+                    },
+                    ["ifAbsent"] = new JsonObject
+                    {
+                        ["const"] = JsonValue.Create(true)
+                    }
+                }
+            }
+        };
+    }
+
+    private static JsonNode TransformToolInputRootSchemaNode(
+        AIJsonSchemaTransformContext context,
+        JsonNode schema,
+        bool applySetValueConstraint
+    )
+    {
+        if (!applySetValueConstraint
+         || !context.Path.IsEmpty
+         || schema is not JsonObject objectSchema)
+        {
+            return schema;
+        }
+        var transformedSchema = CloneObject(objectSchema);
+        var allOf = transformedSchema["allOf"] as JsonArray ?? [];
+        allOf.Add((JsonNode?)CreateSetValueMutualExclusionSchema());
+        transformedSchema["allOf"] = allOf;
+        return transformedSchema;
+    }
+
     private static JsonObject CloneObject(JsonObject? schema)
     {
         return schema is null
@@ -184,11 +229,20 @@ internal static class StatePocketMcpToolFactory
                   .AsObject();
     }
 
-    private static AIJsonSchemaCreateOptions CreateSchemaCreateOptions()
+    private static AIJsonSchemaCreateOptions CreateSchemaCreateOptions(MethodInfo method)
     {
+        var toolName = method.GetCustomAttribute<McpServerToolAttribute>()
+                            ?.Name
+                    ?? method.Name;
+        var applySetValueConstraint = string.Equals(toolName, SetValueTool.ToolName, StringComparison.Ordinal);
         return new AIJsonSchemaCreateOptions
         {
-            TransformSchemaNode = static (context, schema) => TransformToolInputSchemaNode(context, schema)
+            TransformSchemaNode = static (context, schema) => TransformToolInputSchemaNode(context, schema),
+            TransformOptions = new AIJsonSchemaTransformOptions
+            {
+                TransformSchemaNode = (context, schema) =>
+                    TransformToolInputRootSchemaNode(context, schema, applySetValueConstraint)
+            }
         };
     }
 

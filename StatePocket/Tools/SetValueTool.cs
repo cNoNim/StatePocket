@@ -21,6 +21,11 @@ internal sealed class SetValueTool(IKvStore kvStore)
         [Description("JSON value to store.")] JsonElement value,
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
         [Description("Optional TTL in seconds. Omit to store the value without expiration.")] long? ttlSeconds = null,
+        [Description(
+            "Optional expected revision for compare-and-set writes. When provided, the write succeeds only if the current live value has this exact revision."
+        )]
+        long? expectedRevision = null,
+        [Description("When true, create the key only if no live value currently exists.")] bool ifAbsent = false,
         CancellationToken cancellationToken = default
     )
     {
@@ -33,9 +38,15 @@ internal sealed class SetValueTool(IKvStore kvStore)
                                             key,
                                             value,
                                             ttlSeconds,
+                                            expectedRevision,
+                                            ifAbsent,
                                             cancellationToken
                                         )
                                        .ConfigureAwait(false);
+        }
+        catch (KvStoreConflictException exception)
+        {
+            throw new McpException(exception.Message, exception);
         }
         catch (KvStoreBusyException exception)
         {
@@ -49,7 +60,9 @@ internal sealed class SetValueTool(IKvStore kvStore)
         {
             Namespace = normalizedNamespace,
             Key = key,
-            ExpiresAt = storedValue.ExpiresAt
+            ExpiresAt = storedValue.ExpiresAt,
+            UpdatedAt = storedValue.UpdatedAt,
+            Revision = storedValue.Revision
         };
         return ToolResultFactory.Success(result);
     }

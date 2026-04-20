@@ -66,6 +66,38 @@ public sealed class CliApplicationTests
                     .GetProperty("properties")
                     .TryGetProperty("ttlSeconds", out _)
         );
+        Assert.True(
+            document.RootElement.GetProperty("inputSchema")
+                    .GetProperty("properties")
+                    .TryGetProperty("expectedRevision", out _)
+        );
+        Assert.True(
+            document.RootElement.GetProperty("inputSchema")
+                    .GetProperty("properties")
+                    .TryGetProperty("ifAbsent", out _)
+        );
+        Assert.Equal(
+            ["expectedRevision", "ifAbsent"],
+            [
+                .. document.RootElement.GetProperty("inputSchema")
+                           .GetProperty("allOf")[0]
+                           .GetProperty("not")
+                           .GetProperty("required")
+                           .EnumerateArray()
+                           .Select(static value => value.GetString()!)
+            ]
+        );
+        Assert.Equal(
+            "null",
+            document.RootElement.GetProperty("inputSchema")
+                    .GetProperty("allOf")[0]
+                    .GetProperty("not")
+                    .GetProperty("properties")
+                    .GetProperty("expectedRevision")
+                    .GetProperty("not")
+                    .GetProperty("type")
+                    .GetString()
+        );
         Assert.False(
             document.RootElement.GetProperty("inputSchema")
                     .GetProperty("properties")
@@ -295,7 +327,9 @@ public sealed class CliApplicationTests
             string key,
             JsonElement value,
             long? ttlSeconds,
-            CancellationToken cancellationToken
+            long? expectedRevision = null,
+            bool ifAbsent = false,
+            CancellationToken cancellationToken = default
         )
         {
             throw new NotSupportedException();
@@ -376,7 +410,9 @@ public sealed class CliApplicationTests
             string key,
             JsonElement value,
             long? ttlSeconds,
-            CancellationToken cancellationToken
+            long? expectedRevision = null,
+            bool ifAbsent = false,
+            CancellationToken cancellationToken = default
         )
         {
             throw new NotSupportedException();
