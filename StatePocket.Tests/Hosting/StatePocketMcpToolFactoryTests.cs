@@ -21,7 +21,7 @@ public sealed class StatePocketMcpToolFactoryTests
                                                                          .BuildServiceProvider();
 
     [Fact]
-    public void SetValue_OverridesValueSchemaToExplicitAnyJson()
+    public void SetValue_UsesUntypedValueSchema()
     {
         var tool = CreateTool(SetValueTool.ToolName);
         var propertySchema = GetPropertySchema(tool, "value");
@@ -30,21 +30,7 @@ public sealed class StatePocketMcpToolFactoryTests
             propertySchema.GetProperty("description")
                           .GetString()
         );
-        Assert.Equal(
-            [
-                "object",
-                "array",
-                "string",
-                "number",
-                "boolean",
-                "null"
-            ],
-            [
-                .. propertySchema.GetProperty("type")
-                                 .EnumerateArray()
-                                 .Select(static value => value.GetString()!)
-            ]
-        );
+        Assert.False(propertySchema.TryGetProperty("type", out _));
     }
 
     [Fact]
@@ -202,21 +188,9 @@ public sealed class StatePocketMcpToolFactoryTests
                              .GetProperty("type")
                              .GetString()
         );
-        Assert.Equal(
-            [
-                "object",
-                "array",
-                "string",
-                "number",
-                "boolean",
-                "null"
-            ],
-            [
-                .. replaceProperties.GetProperty("value")
-                                    .GetProperty("type")
-                                    .EnumerateArray()
-                                    .Select(static value => value.GetString()!)
-            ]
+        Assert.False(
+            replaceProperties.GetProperty("value")
+                             .TryGetProperty("type", out _)
         );
         Assert.Equal(
             "string",
@@ -229,7 +203,7 @@ public sealed class StatePocketMcpToolFactoryTests
     }
 
     [Fact]
-    public void QueryValues_OverridesEqualsSchemaToExplicitAnyJsonAndPreservesDefault()
+    public void QueryValues_UsesUntypedEqualsSchemaAndPreservesDefault()
     {
         var tool = CreateTool(QueryValuesTool.ToolName);
         var propertySchema = GetPropertySchema(tool, "equals");
@@ -243,21 +217,7 @@ public sealed class StatePocketMcpToolFactoryTests
             propertySchema.GetProperty("default")
                           .ValueKind
         );
-        Assert.Equal(
-            [
-                "object",
-                "array",
-                "string",
-                "number",
-                "boolean",
-                "null"
-            ],
-            [
-                .. propertySchema.GetProperty("type")
-                                 .EnumerateArray()
-                                 .Select(static value => value.GetString()!)
-            ]
-        );
+        Assert.False(propertySchema.TryGetProperty("type", out _));
     }
 
     [Fact]
@@ -279,7 +239,7 @@ public sealed class StatePocketMcpToolFactoryTests
     }
 
     [Fact]
-    public void GetValue_ExposesTypedOutputSchema()
+    public void GetValue_ExposesUntypedValueOutputSchema()
     {
         var tool = CreateTool(GetValueTool.ToolName);
         var outputSchema = tool.ProtocolTool.OutputSchema
@@ -298,21 +258,7 @@ public sealed class StatePocketMcpToolFactoryTests
                       .GetString()
         );
         Assert.True(properties.TryGetProperty("value", out var valueSchema));
-        Assert.Equal(
-            [
-                "object",
-                "array",
-                "string",
-                "number",
-                "boolean",
-                "null"
-            ],
-            [
-                .. valueSchema.GetProperty("type")
-                              .EnumerateArray()
-                              .Select(static value => value.GetString()!)
-            ]
-        );
+        Assert.False(valueSchema.TryGetProperty("type", out _));
         Assert.Equal(
             ["integer", "null"],
             [
@@ -426,6 +372,150 @@ public sealed class StatePocketMcpToolFactoryTests
         Assert.Contains("Invalid JSON Pointer path 'nested/value'.", text.Text);
     }
 
+    [Fact]
+    public async Task SequentialCallToolFilter_AllowsConcurrentReadOnlyRequests()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var serverServices = CreateMcpServerServices();
+        var server = serverServices.GetRequiredService<McpServer>();
+        TaskCompletionSource firstEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource secondEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseFirst = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler =
+            StatePocketMcpRegistration.CreateSequentialCallToolFilter(async (request, requestCancellationToken) =>
+                {
+                    if (request.Params is
+                        {
+                            Name: GetValueTool.ToolName
+                        })
+                    {
+                        firstEntered.SetResult();
+                        await releaseFirst.Task.WaitAsync(requestCancellationToken);
+                        return new CallToolResult();
+                    }
+                    secondEntered.SetResult();
+                    return new CallToolResult();
+                }
+            );
+        var firstTask = handler(
+                CreateCallToolRequestContext(
+                    server,
+                    GetValueTool.ToolName,
+                    new Dictionary<string, JsonElement>
+                    {
+                        ["key"] = JsonSerializer.SerializeToElement("alpha")
+                    }
+                ),
+                cancellationToken
+            )
+           .AsTask();
+        await firstEntered.Task.WaitAsync(cancellationToken);
+        var secondTask = handler(
+                CreateCallToolRequestContext(
+                    server,
+                    ListKeysTool.ToolName,
+                    new Dictionary<string, JsonElement>
+                    {
+                        ["namespace"] = JsonSerializer.SerializeToElement("alpha")
+                    }
+                ),
+                cancellationToken
+            )
+           .AsTask();
+        await Task.Delay(100, cancellationToken);
+        Assert.True(secondTask.IsCompleted);
+        await secondEntered.Task.WaitAsync(cancellationToken);
+        releaseFirst.SetResult();
+        await firstTask;
+    }
+
+    [Fact]
+    public async Task SequentialCallToolFilter_WriterBlocksLaterReadersUntilItRuns()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var serverServices = CreateMcpServerServices();
+        var server = serverServices.GetRequiredService<McpServer>();
+        TaskCompletionSource firstReaderEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseFirstReader = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource writerEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseWriter = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource secondReaderEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler =
+            StatePocketMcpRegistration.CreateSequentialCallToolFilter(async (request, requestCancellationToken) =>
+                {
+                    switch (request.Params.Name)
+                    {
+                        case GetValueTool.ToolName:
+                            if (!firstReaderEntered.Task.IsCompleted)
+                            {
+                                firstReaderEntered.SetResult();
+                                await releaseFirstReader.Task.WaitAsync(requestCancellationToken);
+                                return new CallToolResult();
+                            }
+                            secondReaderEntered.SetResult();
+                            return new CallToolResult();
+                        case SetValueTool.ToolName:
+                            writerEntered.SetResult();
+                            await releaseWriter.Task.WaitAsync(requestCancellationToken);
+                            return new CallToolResult();
+                        default:
+                            return new CallToolResult();
+                    }
+                }
+            );
+        var firstReaderTask = handler(
+                CreateCallToolRequestContext(
+                    server,
+                    GetValueTool.ToolName,
+                    new Dictionary<string, JsonElement>
+                    {
+                        ["key"] = JsonSerializer.SerializeToElement("alpha")
+                    }
+                ),
+                cancellationToken
+            )
+           .AsTask();
+        await firstReaderEntered.Task.WaitAsync(cancellationToken);
+        var writerTask = handler(
+                CreateCallToolRequestContext(
+                    server,
+                    SetValueTool.ToolName,
+                    new Dictionary<string, JsonElement>
+                    {
+                        ["key"] = JsonSerializer.SerializeToElement("alpha"),
+                        ["value"] = JsonSerializer.SerializeToElement(1)
+                    }
+                ),
+                cancellationToken
+            )
+           .AsTask();
+        await Task.Delay(100, cancellationToken);
+        Assert.False(writerTask.IsCompleted);
+        var secondReaderTask = handler(
+                CreateCallToolRequestContext(
+                    server,
+                    GetValueTool.ToolName,
+                    new Dictionary<string, JsonElement>
+                    {
+                        ["key"] = JsonSerializer.SerializeToElement("beta")
+                    }
+                ),
+                cancellationToken
+            )
+           .AsTask();
+        await Task.Delay(100, cancellationToken);
+        Assert.False(secondReaderTask.IsCompleted);
+        Assert.False(secondReaderEntered.Task.IsCompleted);
+        releaseFirstReader.SetResult();
+        await writerEntered.Task.WaitAsync(cancellationToken);
+        await Task.Delay(100, cancellationToken);
+        Assert.False(secondReaderTask.IsCompleted);
+        Assert.False(secondReaderEntered.Task.IsCompleted);
+        releaseWriter.SetResult();
+        await Task.WhenAll(firstReaderTask, writerTask, secondReaderTask);
+        await secondReaderEntered.Task.WaitAsync(cancellationToken);
+    }
+
     private static JsonElement GetPropertySchema(McpServerTool tool, string propertyName)
     {
         return tool.ProtocolTool.InputSchema.GetProperty("properties")
@@ -447,6 +537,9 @@ public sealed class StatePocketMcpToolFactoryTests
         services.AddSingleton<GetValuesTool>();
         services.AddSingleton<SetValueTool>();
         services.AddSingleton<QueryValuesTool>();
+        services.AddSingleton<ListKeysTool>();
+        services.AddSingleton<ListNamespacesTool>();
+        services.AddSingleton<DeleteValueTool>();
         services.AddSingleton<PatchValueTool>();
         StatePocketMcpRegistration.AddServer(services)
                                   .WithStreamServerTransport(Stream.Null, Stream.Null);
@@ -473,7 +566,16 @@ public sealed class StatePocketMcpToolFactoryTests
                 Name = toolName,
                 Arguments = arguments
             }
-        );
+        )
+        {
+            MatchedPrimitive = StatePocketMcpRegistration.FindTool(toolName)
+                                                        ?.Create(
+                                                              server.Services
+                                                           ?? throw new InvalidOperationException(
+                                                                  "Server services are unavailable."
+                                                              )
+                                                          )
+        };
     }
 
     private static string DescribePointer(JsonPointer pointer)

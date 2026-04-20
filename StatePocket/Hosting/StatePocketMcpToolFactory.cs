@@ -39,16 +39,7 @@ internal static class StatePocketMcpToolFactory
 
     private static JsonObject CreateAnyJsonSchema(JsonObject? existing)
     {
-        var schema = CloneObject(existing);
-        schema["type"] = new JsonArray(
-            JsonValue.Create("object"),
-            JsonValue.Create("array"),
-            JsonValue.Create("string"),
-            JsonValue.Create("number"),
-            JsonValue.Create("boolean"),
-            JsonValue.Create("null")
-        );
-        return schema;
+        return CloneObject(existing);
     }
 
     private static JsonObject CreatePatchItemSchema()
