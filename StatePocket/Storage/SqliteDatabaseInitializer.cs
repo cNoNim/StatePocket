@@ -6,9 +6,19 @@ namespace StatePocket.Storage;
 internal sealed class SqliteDatabaseInitializer(ResolvedOptions resolvedOptions)
 {
     private const string RevisionColumnName = "revision";
-    private const string NamespaceRevisionTableName = "kv_namespace_revision";
-    private const string LastRevisionColumnName = "last_revision";
     private const int SqliteGeneralErrorCode = 1;
+    private const string DuplicateRevisionColumnErrorMessage = "duplicate column name: revision";
+    private const string SeedNamespaceRevisionClockCommandText = """
+                                                                 INSERT INTO kv_namespace_revision(namespace, last_revision)
+                                                                 SELECT namespace, MAX(revision)
+                                                                 FROM kv
+                                                                 GROUP BY namespace
+                                                                 ON CONFLICT(namespace) DO UPDATE SET
+                                                                     last_revision = MAX(
+                                                                         kv_namespace_revision.last_revision,
+                                                                         excluded.last_revision
+                                                                     );
+                                                                 """;
     private const string Schema = """
                                   CREATE TABLE IF NOT EXISTS kv (
                                       namespace  TEXT NOT NULL DEFAULT 'default',
@@ -78,8 +88,7 @@ internal sealed class SqliteDatabaseInitializer(ResolvedOptions resolvedOptions)
         var alterTableCommand = connection.CreateCommand();
         await using (alterTableCommand.ConfigureAwait(false))
         {
-            alterTableCommand.CommandText =
-                $"ALTER TABLE kv ADD COLUMN {RevisionColumnName} INTEGER NOT NULL DEFAULT 0;";
+            alterTableCommand.CommandText = "ALTER TABLE kv ADD COLUMN revision INTEGER NOT NULL DEFAULT 0;";
             try
             {
                 await alterTableCommand.ExecuteNonQueryAsync(cancellationToken)
@@ -92,10 +101,7 @@ internal sealed class SqliteDatabaseInitializer(ResolvedOptions resolvedOptions)
     private static bool IsDuplicateRevisionColumnError(SqliteException exception)
     {
         return exception.SqliteErrorCode == SqliteGeneralErrorCode
-            && exception.Message.Contains(
-                   $"duplicate column name: {RevisionColumnName}",
-                   StringComparison.OrdinalIgnoreCase
-               );
+            && exception.Message.Contains(DuplicateRevisionColumnErrorMessage, StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task SeedNamespaceRevisionClockAsync(
@@ -106,17 +112,7 @@ internal sealed class SqliteDatabaseInitializer(ResolvedOptions resolvedOptions)
         var seedClockCommand = connection.CreateCommand();
         await using (seedClockCommand.ConfigureAwait(false))
         {
-            seedClockCommand.CommandText = $"""
-                                            INSERT INTO {NamespaceRevisionTableName}(namespace, {LastRevisionColumnName})
-                                            SELECT namespace, MAX({RevisionColumnName})
-                                            FROM kv
-                                            GROUP BY namespace
-                                            ON CONFLICT(namespace) DO UPDATE SET
-                                                {LastRevisionColumnName} = MAX(
-                                                    {NamespaceRevisionTableName}.{LastRevisionColumnName},
-                                                    excluded.{LastRevisionColumnName}
-                                                );
-                                            """;
+            seedClockCommand.CommandText = SeedNamespaceRevisionClockCommandText;
             await seedClockCommand.ExecuteNonQueryAsync(cancellationToken)
                                   .ConfigureAwait(false);
         }
@@ -130,7 +126,7 @@ internal sealed class SqliteDatabaseInitializer(ResolvedOptions resolvedOptions)
         var hasSeededRowsCommand = connection.CreateCommand();
         await using (hasSeededRowsCommand.ConfigureAwait(false))
         {
-            hasSeededRowsCommand.CommandText = $"SELECT 1 FROM {NamespaceRevisionTableName} LIMIT 1;";
+            hasSeededRowsCommand.CommandText = "SELECT 1 FROM kv_namespace_revision LIMIT 1;";
             var result = await hasSeededRowsCommand.ExecuteScalarAsync(cancellationToken)
                                                    .ConfigureAwait(false);
             return result is null;
