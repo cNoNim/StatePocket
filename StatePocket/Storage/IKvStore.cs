@@ -5,7 +5,7 @@ namespace StatePocket.Storage;
 
 internal interface IKvStore
 {
-    public Task SetValueAsync(
+    public Task<SetValueMetadata> SetValueAsync(
         string? @namespace,
         string key,
         JsonElement value,

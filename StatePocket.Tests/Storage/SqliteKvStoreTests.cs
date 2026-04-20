@@ -44,7 +44,7 @@ public sealed class SqliteKvStoreTests : IDisposable
     public async Task SetAndGetValue_RoundTripsJsonNull()
     {
         var storedValue = ParseJson("null");
-        await _store.SetValueAsync(
+        var writeResult = await _store.SetValueAsync(
             "default",
             "nullable",
             storedValue,
@@ -52,9 +52,23 @@ public sealed class SqliteKvStoreTests : IDisposable
             CancellationToken.None
         );
         var storedEntry = await _store.GetValueAsync("default", "nullable", CancellationToken.None);
+        Assert.Null(writeResult.ExpiresAt);
         Assert.NotNull(storedEntry);
         Assert.Equal(JsonValueKind.Null, storedEntry.Value.ValueKind);
         Assert.Null(storedEntry.ExpiresAt);
+    }
+
+    [Fact]
+    public async Task SetValue_ReturnsExpiryMetadataWhenTtlIsSet()
+    {
+        var writeResult = await _store.SetValueAsync(
+            "default",
+            "ephemeral",
+            ParseJson("{\"ok\":true}"),
+            60,
+            CancellationToken.None
+        );
+        Assert.Equal("2026-04-14T10:01:00.0000000Z", writeResult.ExpiresAt);
     }
 
     [Fact]

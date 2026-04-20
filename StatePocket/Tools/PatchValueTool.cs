@@ -51,7 +51,8 @@ internal sealed class PatchValueTool(IKvStore kvStore)
         {
             Namespace = normalizedNamespace,
             Key = key,
-            Value = updatedValue.Value
+            Value = updatedValue.Value,
+            ExpiresAt = updatedValue.ExpiresAt
         };
         return ToolResultFactory.Success(result);
     }

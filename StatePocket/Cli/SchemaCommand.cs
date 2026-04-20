@@ -102,7 +102,7 @@ internal static class SchemaCommand
 
     private sealed class SchemaOnlyKvStore : IKvStore
     {
-        public Task SetValueAsync(
+        public Task<SetValueMetadata> SetValueAsync(
             string? @namespace,
             string key,
             JsonElement value,

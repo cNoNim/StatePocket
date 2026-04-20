@@ -25,16 +25,17 @@ internal sealed class SetValueTool(IKvStore kvStore)
     )
     {
         var normalizedNamespace = ToolResultFactory.NormalizeNamespace(@namespace);
+        SetValueMetadata storedValue;
         try
         {
-            await kvStore.SetValueAsync(
-                              normalizedNamespace,
-                              key,
-                              value,
-                              ttlSeconds,
-                              cancellationToken
-                          )
-                         .ConfigureAwait(false);
+            storedValue = await kvStore.SetValueAsync(
+                                            normalizedNamespace,
+                                            key,
+                                            value,
+                                            ttlSeconds,
+                                            cancellationToken
+                                        )
+                                       .ConfigureAwait(false);
         }
         catch (KvStoreBusyException exception)
         {
@@ -47,7 +48,8 @@ internal sealed class SetValueTool(IKvStore kvStore)
         var result = new SetValueResultData
         {
             Namespace = normalizedNamespace,
-            Key = key
+            Key = key,
+            ExpiresAt = storedValue.ExpiresAt
         };
         return ToolResultFactory.Success(result);
     }

@@ -280,7 +280,7 @@ public sealed class CliApplicationTests
     {
         public bool PurgeExpiredCalled { get; private set; }
 
-        public Task SetValueAsync(
+        public Task<SetValueMetadata> SetValueAsync(
             string? @namespace,
             string key,
             JsonElement value,
@@ -361,7 +361,7 @@ public sealed class CliApplicationTests
 
     private sealed class ThrowingKvStore : IKvStore
     {
-        public Task SetValueAsync(
+        public Task<SetValueMetadata> SetValueAsync(
             string? @namespace,
             string key,
             JsonElement value,

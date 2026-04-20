@@ -19,7 +19,7 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
     private const int SqliteLockedErrorCode = 6;
     private const int SqliteBusyTimeoutSeconds = 1;
 
-    public Task SetValueAsync(
+    public Task<SetValueMetadata> SetValueAsync(
         string? @namespace,
         string key,
         JsonElement value,
@@ -67,6 +67,10 @@ internal sealed class SqliteKvStore(ResolvedOptions resolvedOptions, TimeProvide
                                      .ConfigureAwait(false);
                     }
                 }
+                return new SetValueMetadata
+                {
+                    ExpiresAt = expiresAt
+                };
             }
         );
     }

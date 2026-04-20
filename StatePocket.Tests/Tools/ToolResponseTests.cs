@@ -100,6 +100,25 @@ public sealed class ToolResponseTests : IDisposable
         var data = DeserializeStructuredContent<SetValueResultData>(result);
         Assert.Equal("default", data.Namespace);
         Assert.Equal("smoke.test", data.Key);
+        Assert.Null(data.ExpiresAt);
+        AssertTextMatchesStructuredContent(result);
+    }
+
+    [Fact]
+    public async Task SetValue_ReturnsExpiresAtWhenTtlIsSet()
+    {
+        SetValueTool tool = new(_store);
+        var result = await tool.SetValueAsync(
+            "smoke.test",
+            ParseJson("\"ok\""),
+            "codex",
+            60,
+            CancellationToken.None
+        );
+        var data = DeserializeStructuredContent<SetValueResultData>(result);
+        Assert.Equal("codex", data.Namespace);
+        Assert.Equal("smoke.test", data.Key);
+        Assert.Equal("2026-04-14T10:01:00.0000000Z", data.ExpiresAt);
         AssertTextMatchesStructuredContent(result);
     }
 
@@ -904,6 +923,33 @@ public sealed class ToolResponseTests : IDisposable
         Assert.Equal("codex", data.Namespace);
         Assert.Equal("profile", data.Key);
         Assert.Equal("{\"name\":\"new\"}", data.Value.GetRawText());
+        Assert.Null(data.ExpiresAt);
+        AssertTextMatchesStructuredContent(result);
+    }
+
+    [Fact]
+    public async Task PatchValue_ReturnsExpiresAtWhenKeyHasTtl()
+    {
+        SetValueTool setTool = new(_store);
+        PatchValueTool updateTool = new(_store);
+        await setTool.SetValueCoreAsync(
+            "profile",
+            ParseJson("{\"name\":\"old\"}"),
+            "codex",
+            60,
+            CancellationToken.None
+        );
+        var result = await updateTool.PatchValueAsync(
+            "profile",
+            Patch(Replace("/name", "\"new\"")),
+            "codex",
+            CancellationToken.None
+        );
+        var data = DeserializeStructuredContent<PatchValueResultData>(result);
+        Assert.Equal("codex", data.Namespace);
+        Assert.Equal("profile", data.Key);
+        Assert.Equal("{\"name\":\"new\"}", data.Value.GetRawText());
+        Assert.Equal("2026-04-14T10:01:00.0000000Z", data.ExpiresAt);
         AssertTextMatchesStructuredContent(result);
     }
 
@@ -1143,6 +1189,37 @@ public sealed class ToolResponseTests : IDisposable
         Assert.True(json.TryGetProperty("path_found", out _));
         Assert.True(json.TryGetProperty("expires_at", out _));
         Assert.False(json.TryGetProperty("pathFound", out _));
+    }
+
+    [Fact]
+    public void SetValueResultData_UsesSnakeCaseJsonFieldNames()
+    {
+        var json = JsonSerializer.SerializeToElement(
+            new SetValueResultData
+            {
+                Namespace = "codex",
+                Key = "key",
+                ExpiresAt = "2026-04-14T10:01:00.0000000Z"
+            }
+        );
+        Assert.True(json.TryGetProperty("expires_at", out _));
+        Assert.False(json.TryGetProperty("expiresAt", out _));
+    }
+
+    [Fact]
+    public void PatchValueResultData_UsesSnakeCaseJsonFieldNames()
+    {
+        var json = JsonSerializer.SerializeToElement(
+            new PatchValueResultData
+            {
+                Namespace = "codex",
+                Key = "key",
+                Value = ParseJson("\"value\""),
+                ExpiresAt = "2026-04-14T10:01:00.0000000Z"
+            }
+        );
+        Assert.True(json.TryGetProperty("expires_at", out _));
+        Assert.False(json.TryGetProperty("expiresAt", out _));
     }
 
     [Fact]
