@@ -202,21 +202,61 @@ internal static class StatePocketMcpToolFactory
         };
     }
 
+    private static JsonObject CreateQueryValuesEqualsRequiresQuerySchema()
+    {
+        return new JsonObject
+        {
+            ["if"] = new JsonObject
+            {
+                ["required"] = new JsonArray(JsonValue.Create("equals"))
+            },
+            ["then"] = new JsonObject
+            {
+                ["required"] = new JsonArray(JsonValue.Create("query")),
+                ["properties"] = new JsonObject
+                {
+                    ["query"] = new JsonObject
+                    {
+                        ["not"] = new JsonObject
+                        {
+                            ["type"] = JsonValue.Create("null")
+                        }
+                    }
+                }
+            }
+        };
+    }
+
     private static JsonNode TransformToolInputRootSchemaNode(
         AIJsonSchemaTransformContext context,
         JsonNode schema,
-        bool applySetValueConstraint
+        string toolName
     )
     {
-        if (!applySetValueConstraint
-         || !context.Path.IsEmpty
+        if (!context.Path.IsEmpty
          || schema is not JsonObject objectSchema)
+        {
+            return schema;
+        }
+        List<JsonNode> constraints = [];
+        if (string.Equals(toolName, SetValueTool.ToolName, StringComparison.Ordinal))
+        {
+            constraints.Add(CreateSetValueMutualExclusionSchema());
+        }
+        if (string.Equals(toolName, QueryValuesTool.ToolName, StringComparison.Ordinal))
+        {
+            constraints.Add(CreateQueryValuesEqualsRequiresQuerySchema());
+        }
+        if (constraints.Count == 0)
         {
             return schema;
         }
         var transformedSchema = CloneObject(objectSchema);
         var allOf = transformedSchema["allOf"] as JsonArray ?? [];
-        allOf.Add((JsonNode?)CreateSetValueMutualExclusionSchema());
+        foreach (var constraint in constraints)
+        {
+            allOf.Add(constraint);
+        }
         transformedSchema["allOf"] = allOf;
         return transformedSchema;
     }
@@ -234,14 +274,12 @@ internal static class StatePocketMcpToolFactory
         var toolName = method.GetCustomAttribute<McpServerToolAttribute>()
                             ?.Name
                     ?? method.Name;
-        var applySetValueConstraint = string.Equals(toolName, SetValueTool.ToolName, StringComparison.Ordinal);
         return new AIJsonSchemaCreateOptions
         {
             TransformSchemaNode = static (context, schema) => TransformToolInputSchemaNode(context, schema),
             TransformOptions = new AIJsonSchemaTransformOptions
             {
-                TransformSchemaNode = (context, schema) =>
-                    TransformToolInputRootSchemaNode(context, schema, applySetValueConstraint)
+                TransformSchemaNode = (context, schema) => TransformToolInputRootSchemaNode(context, schema, toolName)
             }
         };
     }

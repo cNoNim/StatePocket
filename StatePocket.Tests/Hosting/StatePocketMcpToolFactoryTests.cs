@@ -230,6 +230,40 @@ public sealed class StatePocketMcpToolFactoryTests
     }
 
     [Fact]
+    public void QueryValues_SchemaRequiresQueryWhenEqualsIsPresent()
+    {
+        var tool = CreateTool(QueryValuesTool.ToolName);
+        var constraintSchema = tool.ProtocolTool.InputSchema.GetProperty("allOf")[0];
+        Assert.Equal(
+            ["equals"],
+            [
+                .. constraintSchema.GetProperty("if")
+                                   .GetProperty("required")
+                                   .EnumerateArray()
+                                   .Select(static value => value.GetString()!)
+            ]
+        );
+        Assert.Equal(
+            ["query"],
+            [
+                .. constraintSchema.GetProperty("then")
+                                   .GetProperty("required")
+                                   .EnumerateArray()
+                                   .Select(static value => value.GetString()!)
+            ]
+        );
+        Assert.Equal(
+            "null",
+            constraintSchema.GetProperty("then")
+                            .GetProperty("properties")
+                            .GetProperty("query")
+                            .GetProperty("not")
+                            .GetProperty("type")
+                            .GetString()
+        );
+    }
+
+    [Fact]
     public void McpSchema_TreatsJsonPointerParameterAsString()
     {
         var tool = StatePocketMcpToolFactory.Create((Func<JsonPointer, string>)DescribePointer, _services);
