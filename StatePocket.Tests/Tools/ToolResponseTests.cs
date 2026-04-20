@@ -14,6 +14,7 @@ namespace StatePocket.Tests.Tools;
 
 public sealed class ToolResponseTests : IDisposable
 {
+    private static readonly JsonSerializerOptions ToolResultSerializerOptions = CreateToolResultSerializerOptions();
     private readonly string _databasePath;
     private readonly SqliteKvStore _store;
 
@@ -1280,7 +1281,7 @@ public sealed class ToolResponseTests : IDisposable
     [Fact]
     public void GetValueResult_UsesCamelCaseJsonFieldNames()
     {
-        var json = JsonSerializer.SerializeToElement(
+        var json = SerializeToolResult(
             new GetValueResult
             {
                 Namespace = "codex",
@@ -1303,7 +1304,7 @@ public sealed class ToolResponseTests : IDisposable
     [Fact]
     public void SetValueResult_UsesCamelCaseJsonFieldNames()
     {
-        var json = JsonSerializer.SerializeToElement(
+        var json = SerializeToolResult(
             new SetValueResult
             {
                 Namespace = "codex",
@@ -1322,7 +1323,7 @@ public sealed class ToolResponseTests : IDisposable
     [Fact]
     public void PatchValueResult_UsesCamelCaseJsonFieldNames()
     {
-        var json = JsonSerializer.SerializeToElement(
+        var json = SerializeToolResult(
             new PatchValueResult
             {
                 Namespace = "codex",
@@ -1342,7 +1343,7 @@ public sealed class ToolResponseTests : IDisposable
     [Fact]
     public void GetValuesEntry_UsesCamelCaseJsonFieldNames()
     {
-        var json = JsonSerializer.SerializeToElement(
+        var json = SerializeToolResult(
             new GetValuesEntry
             {
                 Found = true,
@@ -1363,7 +1364,7 @@ public sealed class ToolResponseTests : IDisposable
     [Fact]
     public void GetValuesResult_UsesCamelCaseJsonFieldNames()
     {
-        var json = JsonSerializer.SerializeToElement(
+        var json = SerializeToolResult(
             new GetValuesResult
             {
                 Namespace = "codex",
@@ -1378,7 +1379,7 @@ public sealed class ToolResponseTests : IDisposable
     [Fact]
     public void QueryValuesResult_UsesCamelCaseJsonFieldNames()
     {
-        var json = JsonSerializer.SerializeToElement(
+        var json = SerializeToolResult(
             new QueryValuesResult
             {
                 Namespace = "codex",
@@ -1393,7 +1394,7 @@ public sealed class ToolResponseTests : IDisposable
     [Fact]
     public void ListKeysResult_UsesCamelCaseJsonFieldNames()
     {
-        var json = JsonSerializer.SerializeToElement(
+        var json = SerializeToolResult(
             new ListKeysResult
             {
                 Namespace = "codex",
@@ -1408,7 +1409,7 @@ public sealed class ToolResponseTests : IDisposable
     [Fact]
     public void ListNamespacesResult_UsesCamelCaseJsonFieldNames()
     {
-        var json = JsonSerializer.SerializeToElement(
+        var json = SerializeToolResult(
             new ListNamespacesResult
             {
                 Namespaces = ["codex"],
@@ -1423,6 +1424,21 @@ public sealed class ToolResponseTests : IDisposable
     {
         using var document = JsonDocument.Parse(json);
         return document.RootElement.Clone();
+    }
+
+    private static JsonElement SerializeToolResult<TValue>(TValue value)
+    {
+        return JsonSerializer.SerializeToElement(value, ToolResultSerializerOptions);
+    }
+
+    private static JsonSerializerOptions CreateToolResultSerializerOptions()
+    {
+        JsonSerializerOptions options = new(McpJsonUtilities.DefaultOptions)
+        {
+            AllowDuplicateProperties = false
+        };
+        options.TypeInfoResolverChain.Insert(0, ToolResultJsonContext.Default);
+        return options;
     }
 
     private static async Task AssertInvalidNamespaceRejectedAsync(Func<string, Task> action)
