@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace StatePocket.Contracts;
@@ -8,4 +9,6 @@ internal sealed record PatchValueResultData
     public required string Namespace { get; init; }
     [JsonPropertyName("key")]
     public required string Key { get; init; }
+    [JsonPropertyName("value")]
+    public required JsonElement Value { get; init; }
 }

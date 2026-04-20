@@ -13,7 +13,9 @@ internal sealed class PatchValueTool(IKvStore kvStore)
     public const string ToolName = "patch_value";
 
     [McpServerTool(Name = ToolName)]
-    [Description("Applies an RFC 6902 JSON Patch document to an existing value in the selected namespace.")]
+    [Description(
+        "Applies an RFC 6902 JSON Patch document to an existing value in the selected namespace and returns the updated value."
+    )]
     internal async Task<CallToolResult> PatchValueAsync(
         [Description("Key to patch.")] string key,
         [Description("JSON Patch document to apply.")] JsonPatch patch,
@@ -22,16 +24,16 @@ internal sealed class PatchValueTool(IKvStore kvStore)
     )
     {
         var normalizedNamespace = ToolResultFactory.NormalizeNamespace(@namespace);
-        bool updated;
+        KvValue? updatedValue;
         try
         {
-            updated = await kvStore.PatchValueAsync(
-                                        normalizedNamespace,
-                                        key,
-                                        patch,
-                                        cancellationToken
-                                    )
-                                   .ConfigureAwait(false);
+            updatedValue = await kvStore.PatchValueAsync(
+                                             normalizedNamespace,
+                                             key,
+                                             patch,
+                                             cancellationToken
+                                         )
+                                        .ConfigureAwait(false);
         }
         catch (JsonPatchException exception)
         {
@@ -41,14 +43,15 @@ internal sealed class PatchValueTool(IKvStore kvStore)
         {
             throw new McpException(exception.Message, exception);
         }
-        if (!updated)
+        if (updatedValue is null)
         {
             throw new McpException($"Key '{key}' was not found in namespace '{normalizedNamespace}'.");
         }
         var result = new PatchValueResultData
         {
             Namespace = normalizedNamespace,
-            Key = key
+            Key = key,
+            Value = updatedValue.Value
         };
         return ToolResultFactory.Success(result);
     }

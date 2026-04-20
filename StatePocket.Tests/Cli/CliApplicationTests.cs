@@ -337,7 +337,7 @@ public sealed class CliApplicationTests
             throw new NotSupportedException();
         }
 
-        public Task<bool> PatchValueAsync(
+        public Task<KvValue?> PatchValueAsync(
             string? @namespace,
             string key,
             JsonPatch patch,
@@ -418,7 +418,7 @@ public sealed class CliApplicationTests
             throw new NotSupportedException();
         }
 
-        public Task<bool> PatchValueAsync(
+        public Task<KvValue?> PatchValueAsync(
             string? @namespace,
             string key,
             JsonPatch patch,

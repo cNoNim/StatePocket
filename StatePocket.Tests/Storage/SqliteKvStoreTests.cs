@@ -656,15 +656,17 @@ public sealed class SqliteKvStoreTests : IDisposable
             CancellationToken.None
         );
         var after = await _store.GetValueAsync("default", "profile", CancellationToken.None);
-        Assert.True(updated);
-        Assert.NotNull(before);
-        Assert.NotNull(after);
-        Assert.Equal("{\"name\":\"new\",\"tags\":[\"a\",\"b\"]}", after.Value.GetRawText());
-        Assert.Equal(before.ExpiresAt, after.ExpiresAt);
+        var updatedEntry = Assert.IsType<KvValue>(updated);
+        var beforeEntry = Assert.IsType<KvValue>(before);
+        var afterEntry = Assert.IsType<KvValue>(after);
+        Assert.Equal("{\"name\":\"new\",\"tags\":[\"a\",\"b\"]}", updatedEntry.Value.GetRawText());
+        Assert.Equal(beforeEntry.ExpiresAt, updatedEntry.ExpiresAt);
+        Assert.Equal("{\"name\":\"new\",\"tags\":[\"a\",\"b\"]}", afterEntry.Value.GetRawText());
+        Assert.Equal(beforeEntry.ExpiresAt, afterEntry.ExpiresAt);
     }
 
     [Fact]
-    public async Task PatchValue_ReturnsFalseWhenKeyIsMissing()
+    public async Task PatchValue_ReturnsNullWhenKeyIsMissing()
     {
         var updated = await _store.PatchValueAsync(
             "default",
@@ -672,11 +674,11 @@ public sealed class SqliteKvStoreTests : IDisposable
             Patch(JsonPatchOperation.Add("/foo", JsonValue.Create(1))),
             CancellationToken.None
         );
-        Assert.False(updated);
+        Assert.Null(updated);
     }
 
     [Fact]
-    public async Task PatchValue_ReturnsFalseForExpiredRow()
+    public async Task PatchValue_ReturnsNullForExpiredRow()
     {
         await _store.SetValueAsync(
             "default",
@@ -691,7 +693,7 @@ public sealed class SqliteKvStoreTests : IDisposable
             Patch(JsonPatchOperation.Replace("/name", JsonValue.Create("new"))),
             CancellationToken.None
         );
-        Assert.False(updated);
+        Assert.Null(updated);
     }
 
     [Fact]
@@ -741,11 +743,15 @@ public sealed class SqliteKvStoreTests : IDisposable
             CancellationToken.None
         );
         var storedEntry = await _store.GetValueAsync("default", "profile", CancellationToken.None);
-        Assert.True(updated);
-        Assert.NotNull(storedEntry);
+        var updatedEntry = Assert.IsType<KvValue>(updated);
+        var storedValue = Assert.IsType<KvValue>(storedEntry);
         Assert.Equal(
             "{\"nested\":{\"value\":1},\"items\":[\"a\"],\"nestedCopy\":{\"value\":1},\"displayName\":\"old\"}",
-            storedEntry.Value.GetRawText()
+            updatedEntry.Value.GetRawText()
+        );
+        Assert.Equal(
+            "{\"nested\":{\"value\":1},\"items\":[\"a\"],\"nestedCopy\":{\"value\":1},\"displayName\":\"old\"}",
+            storedValue.Value.GetRawText()
         );
     }
 

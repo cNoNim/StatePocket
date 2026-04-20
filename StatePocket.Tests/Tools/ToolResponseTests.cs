@@ -903,6 +903,7 @@ public sealed class ToolResponseTests : IDisposable
         var data = DeserializeStructuredContent<PatchValueResultData>(result);
         Assert.Equal("codex", data.Namespace);
         Assert.Equal("profile", data.Key);
+        Assert.Equal("{\"name\":\"new\"}", data.Value.GetRawText());
         AssertTextMatchesStructuredContent(result);
     }
 
@@ -999,6 +1000,10 @@ public sealed class ToolResponseTests : IDisposable
         );
         Assert.Equal("codex", result.Namespace);
         Assert.Equal("profile", result.Key);
+        Assert.Equal(
+            "{\"nested\":{\"value\":1},\"nestedCopy\":{\"value\":1},\"displayName\":\"old\"}",
+            result.Value.GetRawText()
+        );
         Assert.True(stored.Found);
         Assert.True(stored.Value.HasValue);
         Assert.Equal(

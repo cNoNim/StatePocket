@@ -365,7 +365,7 @@ public sealed class StatePocketMcpToolFactoryTests
             throw new NotSupportedException();
         }
 
-        public Task<bool> PatchValueAsync(
+        public Task<KvValue?> PatchValueAsync(
             string? @namespace,
             string key,
             JsonPatch patch,
