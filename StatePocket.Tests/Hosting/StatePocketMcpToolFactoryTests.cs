@@ -348,7 +348,21 @@ public sealed class StatePocketMcpToolFactoryTests
                       .GetString()
         );
         Assert.True(properties.TryGetProperty("value", out var valueSchema));
-        Assert.Equal(JsonValueKind.True, valueSchema.ValueKind);
+        Assert.Equal(
+            [
+                "object",
+                "array",
+                "string",
+                "number",
+                "boolean",
+                "null"
+            ],
+            [
+                .. valueSchema.GetProperty("type")
+                              .EnumerateArray()
+                              .Select(static value => value.GetString()!)
+            ]
+        );
         Assert.Equal(
             ["integer", "null"],
             [

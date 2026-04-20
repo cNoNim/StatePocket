@@ -154,15 +154,15 @@ internal static class StatePocketMcpToolFactory
     private static JsonNode TransformToolInputSchemaNode(AIJsonSchemaCreateContext context, JsonNode schema)
     {
         schema = JsonPointerSchemaExtensions.TransformJsonPointerSchema(context.TypeInfo.Type, schema);
+        var schemaType = Nullable.GetUnderlyingType(context.TypeInfo.Type) ?? context.TypeInfo.Type;
+        if (schemaType == typeof(JsonElement))
+        {
+            return CreateAnyJsonSchema(schema as JsonObject);
+        }
         if (!context.Path.IsEmpty
          || schema is not JsonObject objectSchema)
         {
             return schema;
-        }
-        var schemaType = Nullable.GetUnderlyingType(context.TypeInfo.Type) ?? context.TypeInfo.Type;
-        if (schemaType == typeof(JsonElement))
-        {
-            return CreateAnyJsonSchema(objectSchema);
         }
         if (schemaType == typeof(JsonPatch))
         {
