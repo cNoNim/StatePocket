@@ -7,7 +7,6 @@ using ModelContextProtocol.Server;
 using StatePocket.Contracts;
 using StatePocket.Json.Patch;
 using StatePocket.Json.Pointer;
-using StatePocket.Tools;
 
 namespace StatePocket.Hosting;
 
@@ -35,7 +34,6 @@ internal static class StatePocketMcpToolFactory
                 SchemaCreateOptions = CreateSchemaCreateOptions()
             }
         );
-        ApplyToolInputSchemaOverrides(tool, method);
         return tool;
     }
 
@@ -177,96 +175,6 @@ internal static class StatePocketMcpToolFactory
         schema["type"] = JsonValue.Create("array");
         schema["items"] = CreatePatchItemSchema();
         return schema;
-    }
-
-    private static JsonObject CreateSetValueMutualExclusionSchema()
-    {
-        return new JsonObject
-        {
-            ["not"] = new JsonObject
-            {
-                ["required"] = new JsonArray(JsonValue.Create("expectedRevision"), JsonValue.Create("ifAbsent")),
-                ["properties"] = new JsonObject
-                {
-                    ["expectedRevision"] = new JsonObject
-                    {
-                        ["not"] = new JsonObject
-                        {
-                            ["type"] = JsonValue.Create("null")
-                        }
-                    },
-                    ["ifAbsent"] = new JsonObject
-                    {
-                        ["const"] = JsonValue.Create(true)
-                    }
-                }
-            }
-        };
-    }
-
-    private static JsonObject CreateQueryValuesEqualsRequiresQuerySchema()
-    {
-        return new JsonObject
-        {
-            ["if"] = new JsonObject
-            {
-                ["required"] = new JsonArray(JsonValue.Create("equals"))
-            },
-            ["then"] = new JsonObject
-            {
-                ["required"] = new JsonArray(JsonValue.Create("query")),
-                ["properties"] = new JsonObject
-                {
-                    ["query"] = new JsonObject
-                    {
-                        ["not"] = new JsonObject
-                        {
-                            ["type"] = JsonValue.Create("null")
-                        }
-                    }
-                }
-            }
-        };
-    }
-
-    private static JsonObject ApplyToolInputRootSchemaOverrides(JsonObject objectSchema, string toolName)
-    {
-        List<JsonNode> constraints = [];
-        if (string.Equals(toolName, SetValueTool.ToolName, StringComparison.Ordinal))
-        {
-            constraints.Add(CreateSetValueMutualExclusionSchema());
-        }
-        if (string.Equals(toolName, QueryValuesTool.ToolName, StringComparison.Ordinal))
-        {
-            constraints.Add(CreateQueryValuesEqualsRequiresQuerySchema());
-        }
-        if (constraints.Count == 0)
-        {
-            return objectSchema;
-        }
-        var transformedSchema = CloneObject(objectSchema);
-        var allOf = transformedSchema["allOf"] as JsonArray ?? [];
-        foreach (var constraint in constraints)
-        {
-            allOf.Add(constraint);
-        }
-        transformedSchema["allOf"] = allOf;
-        return transformedSchema;
-    }
-
-    private static void ApplyToolInputSchemaOverrides(McpServerTool tool, MethodInfo method)
-    {
-        var toolName = method.GetCustomAttribute<McpServerToolAttribute>()
-                            ?.Name
-                    ?? method.Name;
-        var schemaNode = JsonNode.Parse(tool.ProtocolTool.InputSchema.GetRawText());
-        if (schemaNode is not JsonObject objectSchema)
-        {
-            return;
-        }
-        var transformedSchema = ApplyToolInputRootSchemaOverrides(objectSchema, toolName);
-        using var document = JsonDocument.Parse(transformedSchema.ToJsonString());
-        tool.ProtocolTool.InputSchema = document.RootElement.Clone();
     }
 
     private static JsonObject CloneObject(JsonObject? schema)

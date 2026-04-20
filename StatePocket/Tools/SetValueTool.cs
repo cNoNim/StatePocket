@@ -27,10 +27,13 @@ internal sealed class SetValueTool(IKvStore kvStore)
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
         [Description("Optional TTL in seconds. Omit to store the value without expiration.")] long? ttlSeconds = null,
         [Description(
-            "Optional expected revision for compare-and-set writes. When provided, the write succeeds only if the current live value has this exact revision."
+            "Optional expected revision for compare-and-set writes. When provided, the write succeeds only if the current live value has this exact revision. Cannot be combined with ifAbsent."
         )]
         long? expectedRevision = null,
-        [Description("When true, create the key only if no live value currently exists.")] bool ifAbsent = false,
+        [Description(
+            "When true, create the key only if no live value currently exists. Cannot be combined with expectedRevision."
+        )]
+        bool ifAbsent = false,
         CancellationToken cancellationToken = default
     )
     {

@@ -80,7 +80,7 @@ public sealed class StatePocketMcpToolFactoryTests
         var expectedRevisionPropertySchema = properties.GetProperty("expectedRevision");
         var ifAbsentPropertySchema = properties.GetProperty("ifAbsent");
         Assert.Equal(
-            "Optional expected revision for compare-and-set writes. When provided, the write succeeds only if the current live value has this exact revision.",
+            "Optional expected revision for compare-and-set writes. When provided, the write succeeds only if the current live value has this exact revision. Cannot be combined with ifAbsent.",
             expectedRevisionPropertySchema.GetProperty("description")
                                           .GetString()
         );
@@ -93,7 +93,7 @@ public sealed class StatePocketMcpToolFactoryTests
             ]
         );
         Assert.Equal(
-            "When true, create the key only if no live value currently exists.",
+            "When true, create the key only if no live value currently exists. Cannot be combined with expectedRevision.",
             ifAbsentPropertySchema.GetProperty("description")
                                   .GetString()
         );
@@ -152,33 +152,10 @@ public sealed class StatePocketMcpToolFactoryTests
     }
 
     [Fact]
-    public void SetValue_SchemaRejectsExpectedRevisionWhenIfAbsentIsTrue()
+    public void SetValue_DoesNotPublishTopLevelAllOfInInputSchema()
     {
         var tool = CreateTool(SetValueTool.ToolName);
-        var constraintSchema = tool.ProtocolTool.InputSchema.GetProperty("allOf")[0]
-                                   .GetProperty("not");
-        Assert.Equal(
-            ["expectedRevision", "ifAbsent"],
-            [
-                .. constraintSchema.GetProperty("required")
-                                   .EnumerateArray()
-                                   .Select(static value => value.GetString()!)
-            ]
-        );
-        Assert.Equal(
-            "null",
-            constraintSchema.GetProperty("properties")
-                            .GetProperty("expectedRevision")
-                            .GetProperty("not")
-                            .GetProperty("type")
-                            .GetString()
-        );
-        Assert.True(
-            constraintSchema.GetProperty("properties")
-                            .GetProperty("ifAbsent")
-                            .TryGetProperty("const", out var constValue)
-        );
-        Assert.True(constValue.GetBoolean());
+        Assert.False(tool.ProtocolTool.InputSchema.TryGetProperty("allOf", out _));
     }
 
     [Fact]
@@ -257,7 +234,7 @@ public sealed class StatePocketMcpToolFactoryTests
         var tool = CreateTool(QueryValuesTool.ToolName);
         var propertySchema = GetPropertySchema(tool, "equals");
         Assert.Equal(
-            "Optional JSON value that at least one query match must equal. Requires query to be set. Pass explicit null to match JSON nulls.",
+            "Optional JSON value that at least one query match must equal. Cannot be used without query. Pass explicit null to match JSON nulls.",
             propertySchema.GetProperty("description")
                           .GetString()
         );
@@ -284,37 +261,10 @@ public sealed class StatePocketMcpToolFactoryTests
     }
 
     [Fact]
-    public void QueryValues_SchemaRequiresQueryWhenEqualsIsPresent()
+    public void QueryValues_DoesNotPublishTopLevelAllOfInInputSchema()
     {
         var tool = CreateTool(QueryValuesTool.ToolName);
-        var constraintSchema = tool.ProtocolTool.InputSchema.GetProperty("allOf")[0];
-        Assert.Equal(
-            ["equals"],
-            [
-                .. constraintSchema.GetProperty("if")
-                                   .GetProperty("required")
-                                   .EnumerateArray()
-                                   .Select(static value => value.GetString()!)
-            ]
-        );
-        Assert.Equal(
-            ["query"],
-            [
-                .. constraintSchema.GetProperty("then")
-                                   .GetProperty("required")
-                                   .EnumerateArray()
-                                   .Select(static value => value.GetString()!)
-            ]
-        );
-        Assert.Equal(
-            "null",
-            constraintSchema.GetProperty("then")
-                            .GetProperty("properties")
-                            .GetProperty("query")
-                            .GetProperty("not")
-                            .GetProperty("type")
-                            .GetString()
-        );
+        Assert.False(tool.ProtocolTool.InputSchema.TryGetProperty("allOf", out _));
     }
 
     [Fact]

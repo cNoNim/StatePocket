@@ -92,27 +92,9 @@ public sealed class CliApplicationTests
                     .GetProperty("properties")
                     .TryGetProperty("ifAbsent", out _)
         );
-        Assert.Equal(
-            ["expectedRevision", "ifAbsent"],
-            [
-                .. document.RootElement.GetProperty("inputSchema")
-                           .GetProperty("allOf")[0]
-                           .GetProperty("not")
-                           .GetProperty("required")
-                           .EnumerateArray()
-                           .Select(static value => value.GetString()!)
-            ]
-        );
-        Assert.Equal(
-            "null",
+        Assert.False(
             document.RootElement.GetProperty("inputSchema")
-                    .GetProperty("allOf")[0]
-                    .GetProperty("not")
-                    .GetProperty("properties")
-                    .GetProperty("expectedRevision")
-                    .GetProperty("not")
-                    .GetProperty("type")
-                    .GetString()
+                    .TryGetProperty("allOf", out _)
         );
         Assert.False(
             document.RootElement.GetProperty("inputSchema")
@@ -135,44 +117,15 @@ public sealed class CliApplicationTests
     }
 
     [Fact]
-    public async Task RunAsync_SchemaQueryValuesWritesEqualsConstraint()
+    public async Task RunAsync_SchemaQueryValuesDoesNotWriteTopLevelAllOf()
     {
         var (exitCode, output) =
             await CaptureConsoleAsync(static () => CliApplication.RunAsync(["schema", "query_values"]));
         Assert.Equal(0, exitCode);
         using var document = JsonDocument.Parse(output);
-        Assert.Equal(
-            ["equals"],
-            [
-                .. document.RootElement.GetProperty("inputSchema")
-                           .GetProperty("allOf")[0]
-                           .GetProperty("if")
-                           .GetProperty("required")
-                           .EnumerateArray()
-                           .Select(static value => value.GetString()!)
-            ]
-        );
-        Assert.Equal(
-            ["query"],
-            [
-                .. document.RootElement.GetProperty("inputSchema")
-                           .GetProperty("allOf")[0]
-                           .GetProperty("then")
-                           .GetProperty("required")
-                           .EnumerateArray()
-                           .Select(static value => value.GetString()!)
-            ]
-        );
-        Assert.Equal(
-            "null",
+        Assert.False(
             document.RootElement.GetProperty("inputSchema")
-                    .GetProperty("allOf")[0]
-                    .GetProperty("then")
-                    .GetProperty("properties")
-                    .GetProperty("query")
-                    .GetProperty("not")
-                    .GetProperty("type")
-                    .GetString()
+                    .TryGetProperty("allOf", out _)
         );
     }
 
