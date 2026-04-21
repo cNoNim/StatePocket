@@ -1,6 +1,6 @@
 # StatePocket
 
-`StatePocket` is an MCP server that exposes a small JSON key-value store backed by SQLite.
+`StatePocket` is an MCP server that provides persistent local JSON state for agents and tools, backed by SQLite.
 
 It is designed for agents and skills that need durable local state close at hand: save structured JSON, read it back later, query it, patch it, and keep it in a single file instead of scattering state across prompts or temporary files.
 

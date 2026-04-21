@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
@@ -19,6 +20,30 @@ public sealed class StatePocketMcpToolFactoryTests
                                                                          .AddSingleton<QueryValuesTool>()
                                                                          .AddSingleton<PatchValueTool>()
                                                                          .BuildServiceProvider();
+
+    [Fact]
+    public void CreateServerInfo_UsesReadableServerMetadata()
+    {
+        var serverInfo = StatePocketMcpRegistration.CreateServerInfo();
+        var informationalVersion = typeof(StatePocketMcpHostFactory)
+                                  .Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                                 ?.InformationalVersion;
+        Assert.Equal("statepocket", serverInfo.Name);
+        Assert.Equal("State Pocket", serverInfo.Title);
+        Assert.Equal(informationalVersion?.Split('+', 2)[0], serverInfo.Version);
+        Assert.False(string.IsNullOrWhiteSpace(serverInfo.Description));
+        Assert.False(string.IsNullOrWhiteSpace(serverInfo.WebsiteUrl));
+        Assert.DoesNotContain('+', serverInfo.Version);
+    }
+
+    [Fact]
+    public void CreateServerInstructions_DescribePersistentJsonState()
+    {
+        const string instructions = StatePocketMcpRegistration.ServerInstructions;
+        Assert.Contains("persistent local JSON key-value state", instructions);
+        Assert.Contains("durable namespaced JSON state", instructions);
+        Assert.Contains("SQLite", instructions);
+    }
 
     [Fact]
     public void SetValue_UsesUntypedValueSchema()

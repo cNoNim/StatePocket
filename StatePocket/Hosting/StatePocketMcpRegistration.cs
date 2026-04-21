@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
@@ -7,6 +8,13 @@ namespace StatePocket.Hosting;
 
 internal static class StatePocketMcpRegistration
 {
+    internal const string ServerInstructions = """
+                                               This server provides persistent local JSON key-value state for agents and tools.
+
+                                               Use it for durable namespaced JSON state backed by SQLite.
+
+                                               It fits best for small durable state such as checkpoints, caches, preferences, task state, and structured memory that should survive across turns.
+                                               """;
     private static readonly Dictionary<string, StatePocketMcpToolRegistration> ToolRegistrations =
         StatePocketMcpTools.All.ToDictionary(static tool => tool.Name, static tool => tool, StringComparer.Ordinal);
 
@@ -22,13 +30,8 @@ internal static class StatePocketMcpRegistration
         services.AddSingleton<CallToolExecutionGate>();
         return services.AddMcpServer(static options =>
                             {
-                                options.ServerInfo = new Implementation
-                                {
-                                    Name = nameof(StatePocket),
-                                    Version = typeof(StatePocketMcpHostFactory).Assembly.GetName()
-                                                                               .Version?.ToString()
-                                           ?? "0.0.0"
-                                };
+                                options.ServerInfo = CreateServerInfo();
+                                options.ServerInstructions = ServerInstructions;
                             }
                         )
                        .WithRequestFilters(static filters => filters.AddCallToolFilter(CreateSequentialCallToolFilter)
@@ -36,6 +39,37 @@ internal static class StatePocketMcpRegistration
                                                                          CreateJsonExceptionCallToolFilter
                                                                      )
                         );
+    }
+
+    internal static Implementation CreateServerInfo(Assembly? assembly = null)
+    {
+        assembly ??= typeof(StatePocketMcpHostFactory).Assembly;
+        var assemblyName = assembly.GetName();
+        var title = assembly.GetCustomAttribute<AssemblyTitleAttribute>()
+                           ?.Title;
+        var description = assembly.GetCustomAttribute<AssemblyDescriptionAttribute>()
+                                 ?.Description;
+        var metadata = assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+                               .ToDictionary(
+                                    static attribute => attribute.Key,
+                                    static attribute => attribute.Value,
+                                    StringComparer.Ordinal
+                                );
+        metadata.TryGetValue("ToolCommandName", out var toolCommandName);
+        metadata.TryGetValue("PackageId", out var packageId);
+        metadata.TryGetValue("PackageProjectUrl", out var packageProjectUrl);
+        metadata.TryGetValue("RepositoryUrl", out var repositoryUrl);
+        var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                                          ?.InformationalVersion;
+        var version = informationalVersion?.Split('+', 2)[0];
+        return new Implementation
+        {
+            Name = toolCommandName ?? packageId ?? assemblyName.Name ?? "statepocket",
+            Title = title,
+            Version = version ?? assemblyName.Version?.ToString() ?? "0.0.0",
+            Description = description,
+            WebsiteUrl = packageProjectUrl ?? repositoryUrl
+        };
     }
 
     internal static McpRequestHandler<CallToolRequestParams, CallToolResult> CreateSequentialCallToolFilter(
