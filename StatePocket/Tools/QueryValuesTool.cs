@@ -33,7 +33,7 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         )]
         string? query = null,
         [Description(
-            "Optional value that at least one query match must equal. When format is 'json', provide JSON text. When format is 'text', the raw string is matched as a JSON string. Pass explicit null to match JSON nulls."
+            "Optional value that at least one query match must equal. Requires query. When format is 'json', provide JSON text. When format is 'text', the raw string is matched as a JSON string. Pass explicit null to match JSON nulls."
         )]
         string? equals = null,
         [Description(

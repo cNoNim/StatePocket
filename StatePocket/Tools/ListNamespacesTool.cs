@@ -17,7 +17,9 @@ internal sealed class ListNamespacesTool(IKvStore kvStore)
         OpenWorld = false,
         UseStructuredContent = true
     )]
-    [Description("Lists namespaces, optionally filtered by a wildcard pattern.")]
+    [Description(
+        "Lists namespaces that currently contain at least one live, unexpired key, optionally filtered by a wildcard pattern."
+    )]
     internal async Task<ListNamespacesResult> ListNamespacesAsync(
         [Description("Optional wildcard namespace pattern, for example 'team:*'.")] string? pattern = null,
         [Description("Maximum number of namespaces to return. Defaults to 50 and must be less than or equal to 100.")]

@@ -77,7 +77,7 @@ Tool filters accept comma-separated tool names.
 | `get_value` | Reads one key and can project a fragment with JSON Pointer. |
 | `get_values` | Reads multiple keys in one call. |
 | `query_values` | Finds stored values by key pattern and optional JSONPath filter, with optional equality matching. |
-| `list_namespaces` | Lists namespaces, optionally by wildcard pattern. |
+| `list_namespaces` | Lists namespaces that currently contain at least one live, unexpired key. |
 | `list_keys` | Lists keys in a namespace, optionally by wildcard pattern. |
 | `delete_value` | Deletes a key from a namespace. |
 | `patch_value` | Applies a JSON Patch document to an existing stored value. |
@@ -94,6 +94,7 @@ Tool filters accept comma-separated tool names.
 
 - Values must be valid JSON.
 - Namespaces default to `default`.
+- `list_namespaces` only returns namespaces that currently contain at least one live, unexpired key.
 - Expired values are ignored by reads and best-effort cleanup runs on startup.
 - Data is stored in SQLite, so backing up or moving the state pocket is just copying one database file.
 

@@ -19,6 +19,7 @@ public sealed class StatePocketMcpToolFactoryTests
                                                                          .AddSingleton<GetValuesTool>()
                                                                          .AddSingleton<SetValueTool>()
                                                                          .AddSingleton<QueryValuesTool>()
+                                                                         .AddSingleton<ListNamespacesTool>()
                                                                          .AddSingleton<PatchValueTool>()
                                                                          .BuildServiceProvider();
 
@@ -50,6 +51,10 @@ public sealed class StatePocketMcpToolFactoryTests
     public void SetValue_ExposesStringValueAndFormatSchemas()
     {
         var tool = CreateTool(SetValueTool.ToolName);
+        Assert.Equal(
+            "Stores a JSON value under a key in the selected namespace, creating the key or replacing its current value.",
+            tool.ProtocolTool.Description
+        );
         var valueSchema = GetPropertySchema(tool, "value");
         var formatSchema = GetPropertySchema(tool, "format");
         Assert.Equal(
@@ -95,7 +100,7 @@ public sealed class StatePocketMcpToolFactoryTests
         var properties = tool.ProtocolTool.InputSchema.GetProperty("properties");
         var ttlPropertySchema = properties.GetProperty("ttlSeconds");
         Assert.Equal(
-            "Optional TTL in seconds. Omit to store the value without expiration.",
+            "Optional TTL in whole seconds. Omit to store the value without expiration.",
             ttlPropertySchema.GetProperty("description")
                              .GetString()
         );
@@ -146,6 +151,12 @@ public sealed class StatePocketMcpToolFactoryTests
                         ?? throw new InvalidOperationException("Expected output schema.");
         var properties = outputSchema.GetProperty("properties");
         Assert.Equal(
+            "Namespace containing the stored key.",
+            properties.GetProperty("namespace")
+                      .GetProperty("description")
+                      .GetString()
+        );
+        Assert.Equal(
             "string",
             properties.GetProperty("namespace")
                       .GetProperty("type")
@@ -176,6 +187,12 @@ public sealed class StatePocketMcpToolFactoryTests
             "integer",
             properties.GetProperty("revision")
                       .GetProperty("type")
+                      .GetString()
+        );
+        Assert.Equal(
+            "Monotonic revision scoped to the namespace. A new namespace starts at revision 1.",
+            properties.GetProperty("revision")
+                      .GetProperty("description")
                       .GetString()
         );
         Assert.False(outputSchema.TryGetProperty("allOf", out _));
@@ -212,7 +229,7 @@ public sealed class StatePocketMcpToolFactoryTests
         var equalsSchema = GetPropertySchema(tool, "equals");
         var formatSchema = GetPropertySchema(tool, "format");
         Assert.Equal(
-            "Optional value that at least one query match must equal. When format is 'json', provide JSON text. When format is 'text', the raw string is matched as a JSON string. Pass explicit null to match JSON nulls.",
+            "Optional value that at least one query match must equal. Requires query. When format is 'json', provide JSON text. When format is 'text', the raw string is matched as a JSON string. Pass explicit null to match JSON nulls.",
             equalsSchema.GetProperty("description")
                         .GetString()
         );
@@ -252,6 +269,16 @@ public sealed class StatePocketMcpToolFactoryTests
     }
 
     [Fact]
+    public void ListNamespaces_ExposesLiveNamespaceDescription()
+    {
+        var tool = CreateTool(ListNamespacesTool.ToolName);
+        Assert.Equal(
+            "Lists namespaces that currently contain at least one live, unexpired key, optionally filtered by a wildcard pattern.",
+            tool.ProtocolTool.Description
+        );
+    }
+
+    [Fact]
     public void GetValue_ExposesTitleAndClosedWorldReadOnlyHints()
     {
         var tool = CreateTool(GetValueTool.ToolName);
@@ -270,6 +297,12 @@ public sealed class StatePocketMcpToolFactoryTests
                         ?? throw new InvalidOperationException("Expected output schema.");
         var properties = outputSchema.GetProperty("properties");
         Assert.Equal(
+            "True when the key exists.",
+            properties.GetProperty("found")
+                      .GetProperty("description")
+                      .GetString()
+        );
+        Assert.Equal(
             "boolean",
             properties.GetProperty("found")
                       .GetProperty("type")
@@ -284,6 +317,11 @@ public sealed class StatePocketMcpToolFactoryTests
         Assert.True(properties.TryGetProperty("value", out var valueSchema));
         Assert.False(valueSchema.TryGetProperty("type", out _));
         Assert.Equal(
+            "Stored JSON value, or the projected value when a JSON Pointer path is provided.",
+            valueSchema.GetProperty("description")
+                       .GetString()
+        );
+        Assert.Equal(
             ["integer", "null"],
             [
                 .. properties.GetProperty("revision")
@@ -291,6 +329,12 @@ public sealed class StatePocketMcpToolFactoryTests
                              .EnumerateArray()
                              .Select(static value => value.GetString()!)
             ]
+        );
+        Assert.Equal(
+            "Monotonic revision scoped to the namespace, or null when the key was not found.",
+            properties.GetProperty("revision")
+                      .GetProperty("description")
+                      .GetString()
         );
     }
 
