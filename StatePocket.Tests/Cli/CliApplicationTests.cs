@@ -70,12 +70,17 @@ public sealed class CliApplicationTests
                     .GetBoolean()
         );
         Assert.Equal(
-            "JSON value to store.",
+            "Value to store. Use format 'json' to parse this string as JSON text, or 'text' to store it as a JSON string.",
             document.RootElement.GetProperty("inputSchema")
                     .GetProperty("properties")
                     .GetProperty("value")
                     .GetProperty("description")
                     .GetString()
+        );
+        Assert.True(
+            document.RootElement.GetProperty("inputSchema")
+                    .GetProperty("properties")
+                    .TryGetProperty("format", out _)
         );
         Assert.True(
             document.RootElement.GetProperty("inputSchema")

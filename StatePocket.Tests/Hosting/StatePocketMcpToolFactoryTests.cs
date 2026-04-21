@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -46,16 +47,34 @@ public sealed class StatePocketMcpToolFactoryTests
     }
 
     [Fact]
-    public void SetValue_UsesUntypedValueSchema()
+    public void SetValue_ExposesStringValueAndFormatSchemas()
     {
         var tool = CreateTool(SetValueTool.ToolName);
-        var propertySchema = GetPropertySchema(tool, "value");
+        var valueSchema = GetPropertySchema(tool, "value");
+        var formatSchema = GetPropertySchema(tool, "format");
         Assert.Equal(
-            "JSON value to store.",
-            propertySchema.GetProperty("description")
-                          .GetString()
+            "Value to store. Use format 'json' to parse this string as JSON text, or 'text' to store it as a JSON string.",
+            valueSchema.GetProperty("description")
+                       .GetString()
         );
-        Assert.False(propertySchema.TryGetProperty("type", out _));
+        Assert.Equal(
+            "string",
+            valueSchema.GetProperty("type")
+                       .GetString()
+        );
+        Assert.Equal(
+            "string",
+            formatSchema.GetProperty("type")
+                        .GetString()
+        );
+        Assert.Equal(
+            ["text", "json"],
+            [
+                .. formatSchema.GetProperty("enum")
+                               .EnumerateArray()
+                               .Select(static value => value.GetString()!)
+            ]
+        );
     }
 
     [Fact]
@@ -170,79 +189,59 @@ public sealed class StatePocketMcpToolFactoryTests
     }
 
     [Fact]
-    public void PatchValue_ExposesTypedPatchSchema()
+    public void PatchValue_ExposesStringPatchSchema()
     {
         var tool = CreateTool(PatchValueTool.ToolName);
         var propertySchema = GetPropertySchema(tool, "patch");
         Assert.Equal(
-            "JSON Patch document to apply.",
+            "JSON Patch document to apply, encoded as JSON text.",
             propertySchema.GetProperty("description")
                           .GetString()
         );
         Assert.Equal(
-            "array",
+            "string",
             propertySchema.GetProperty("type")
                           .GetString()
         );
-        var itemSchemas = propertySchema.GetProperty("items")
-                                        .GetProperty("oneOf")
-                                        .EnumerateArray()
-                                        .ToArray();
-        Assert.Equal(6, itemSchemas.Length);
-        var replaceSchema = Assert.Single(
-            itemSchemas,
-            static schema => schema.GetProperty("properties")
-                                   .GetProperty("op")
-                                   .GetProperty("const")
-                                   .GetString()
-                          == "replace"
-        );
-        var moveSchema = Assert.Single(
-            itemSchemas,
-            static schema => schema.GetProperty("properties")
-                                   .GetProperty("op")
-                                   .GetProperty("const")
-                                   .GetString()
-                          == "move"
-        );
-        var replaceProperties = replaceSchema.GetProperty("properties");
-        var moveProperties = moveSchema.GetProperty("properties");
-        Assert.Equal(
-            "string",
-            replaceProperties.GetProperty("op")
-                             .GetProperty("type")
-                             .GetString()
-        );
-        Assert.False(
-            replaceProperties.GetProperty("value")
-                             .TryGetProperty("type", out _)
-        );
-        Assert.Equal(
-            "string",
-            moveProperties.GetProperty("from")
-                          .GetProperty("type")
-                          .GetString()
-        );
-        Assert.False(replaceSchema.TryGetProperty("additionalProperties", out _));
-        Assert.False(moveSchema.TryGetProperty("additionalProperties", out _));
     }
 
     [Fact]
-    public void QueryValues_UsesUntypedEqualsSchemaAndPreservesDefault()
+    public void QueryValues_ExposesStringEqualsAndFormatSchemas()
     {
         var tool = CreateTool(QueryValuesTool.ToolName);
-        var propertySchema = GetPropertySchema(tool, "equals");
+        var equalsSchema = GetPropertySchema(tool, "equals");
+        var formatSchema = GetPropertySchema(tool, "format");
         Assert.Equal(
-            "Optional JSON value that at least one query match must equal. Cannot be used without query. Pass explicit null to match JSON nulls.",
-            propertySchema.GetProperty("description")
-                          .GetString()
+            "Optional value that at least one query match must equal. When format is 'json', provide JSON text. When format is 'text', the raw string is matched as a JSON string. Pass explicit null to match JSON nulls.",
+            equalsSchema.GetProperty("description")
+                        .GetString()
+        );
+        Assert.Equal(
+            ["string", "null"],
+            [
+                .. equalsSchema.GetProperty("type")
+                               .EnumerateArray()
+                               .Select(static value => value.GetString()!)
+            ]
         );
         Assert.Equal(
             JsonValueKind.Null,
-            propertySchema.GetProperty("default")
-                          .ValueKind
+            equalsSchema.GetProperty("default")
+                        .ValueKind
         );
-        Assert.False(propertySchema.TryGetProperty("type", out _));
+        Assert.Equal(
+            "string",
+            formatSchema.GetProperty("type")
+                        .GetString()
+        );
+        Assert.Equal(
+            ["text", "json"],
+            [
+                .. formatSchema.GetProperty("enum")
+                               .EnumerateArray()
+                               .Select(static value => value.GetString()!)
+            ]
+        );
     }
 
     [Fact]
@@ -385,8 +384,7 @@ public sealed class StatePocketMcpToolFactoryTests
             new Dictionary<string, JsonElement>
             {
                 ["key"] = JsonSerializer.SerializeToElement("alpha"),
-                ["patch"] = JsonDocument.Parse("""[{"op":"remove","path":"nested/value"}]""")
-                                        .RootElement.Clone()
+                ["patch"] = JsonSerializer.SerializeToElement("""[{"op":"remove","path":"nested/value"}]""")
             }
         );
         var handler = StatePocketMcpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
@@ -395,6 +393,141 @@ public sealed class StatePocketMcpToolFactoryTests
         var text = Assert.IsType<TextContentBlock>(error);
         Assert.True(result.IsError);
         Assert.Contains("Invalid JSON Pointer path 'nested/value'.", text.Text);
+    }
+
+    [Fact]
+    public async Task JsonExceptionCallToolFilter_RejectsUnsupportedNumericFormatForSetValue()
+    {
+        var tool = CreateTool(SetValueTool.ToolName);
+        await using var serverServices = CreateMcpServerServices();
+        var request = CreateCallToolRequestContext(
+            serverServices.GetRequiredService<McpServer>(),
+            SetValueTool.ToolName,
+            new Dictionary<string, JsonElement>
+            {
+                ["key"] = JsonSerializer.SerializeToElement("alpha"),
+                ["value"] = JsonSerializer.SerializeToElement("""{"ok":true}"""),
+                ["format"] = JsonSerializer.SerializeToElement((JsonNode?)5)
+            }
+        );
+        var handler = StatePocketMcpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
+        var result = await handler(request, CancellationToken.None);
+        var error = Assert.Single(result.Content);
+        var text = Assert.IsType<TextContentBlock>(error);
+        Assert.True(result.IsError);
+        Assert.Contains("format", text.Text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task JsonExceptionCallToolFilter_RejectsZeroFormatForSetValue()
+    {
+        var tool = CreateTool(SetValueTool.ToolName);
+        await using var serverServices = CreateMcpServerServices();
+        var request = CreateCallToolRequestContext(
+            serverServices.GetRequiredService<McpServer>(),
+            SetValueTool.ToolName,
+            new Dictionary<string, JsonElement>
+            {
+                ["key"] = JsonSerializer.SerializeToElement("alpha"),
+                ["value"] = JsonSerializer.SerializeToElement("""{"ok":true}"""),
+                ["format"] = JsonSerializer.SerializeToElement((JsonNode?)0)
+            }
+        );
+        var handler = StatePocketMcpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
+        var result = await handler(request, CancellationToken.None);
+        var error = Assert.Single(result.Content);
+        var text = Assert.IsType<TextContentBlock>(error);
+        Assert.True(result.IsError);
+        Assert.Contains("format", text.Text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task JsonExceptionCallToolFilter_RejectsNullValueForSetValue()
+    {
+        var tool = CreateTool(SetValueTool.ToolName);
+        await using var serverServices = CreateMcpServerServices();
+        var request = CreateCallToolRequestContext(
+            serverServices.GetRequiredService<McpServer>(),
+            SetValueTool.ToolName,
+            new Dictionary<string, JsonElement>
+            {
+                ["key"] = JsonSerializer.SerializeToElement("alpha"),
+                ["value"] = JsonSerializer.SerializeToElement((JsonNode?)null)
+            }
+        );
+        var handler = StatePocketMcpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
+        var result = await handler(request, CancellationToken.None);
+        var error = Assert.Single(result.Content);
+        var text = Assert.IsType<TextContentBlock>(error);
+        Assert.True(result.IsError);
+        Assert.Equal("value is required and must not be null.", text.Text);
+    }
+
+    [Fact]
+    public async Task JsonExceptionCallToolFilter_RejectsMissingValueForSetValue()
+    {
+        var tool = CreateTool(SetValueTool.ToolName);
+        await using var serverServices = CreateMcpServerServices();
+        var request = CreateCallToolRequestContext(
+            serverServices.GetRequiredService<McpServer>(),
+            SetValueTool.ToolName,
+            new Dictionary<string, JsonElement>
+            {
+                ["key"] = JsonSerializer.SerializeToElement("alpha")
+            }
+        );
+        var handler = StatePocketMcpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
+        var result = await handler(request, CancellationToken.None);
+        var error = Assert.Single(result.Content);
+        var text = Assert.IsType<TextContentBlock>(error);
+        Assert.True(result.IsError);
+        Assert.Contains("required parameter 'value'", text.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task JsonExceptionCallToolFilter_RejectsUnsupportedNumericFormatForQueryValues()
+    {
+        var tool = CreateTool(QueryValuesTool.ToolName);
+        await using var serverServices = CreateMcpServerServices();
+        var request = CreateCallToolRequestContext(
+            serverServices.GetRequiredService<McpServer>(),
+            QueryValuesTool.ToolName,
+            new Dictionary<string, JsonElement>
+            {
+                ["query"] = JsonSerializer.SerializeToElement("$.status"),
+                ["equals"] = JsonSerializer.SerializeToElement("active"),
+                ["format"] = JsonSerializer.SerializeToElement((JsonNode?)5)
+            }
+        );
+        var handler = StatePocketMcpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
+        var result = await handler(request, CancellationToken.None);
+        var error = Assert.Single(result.Content);
+        var text = Assert.IsType<TextContentBlock>(error);
+        Assert.True(result.IsError);
+        Assert.Contains("format", text.Text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task JsonExceptionCallToolFilter_RejectsOneFormatForQueryValues()
+    {
+        var tool = CreateTool(QueryValuesTool.ToolName);
+        await using var serverServices = CreateMcpServerServices();
+        var request = CreateCallToolRequestContext(
+            serverServices.GetRequiredService<McpServer>(),
+            QueryValuesTool.ToolName,
+            new Dictionary<string, JsonElement>
+            {
+                ["query"] = JsonSerializer.SerializeToElement("$.status"),
+                ["equals"] = JsonSerializer.SerializeToElement("active"),
+                ["format"] = JsonSerializer.SerializeToElement((JsonNode?)1)
+            }
+        );
+        var handler = StatePocketMcpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
+        var result = await handler(request, CancellationToken.None);
+        var error = Assert.Single(result.Content);
+        var text = Assert.IsType<TextContentBlock>(error);
+        Assert.True(result.IsError);
+        Assert.Contains("format", text.Text, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

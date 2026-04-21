@@ -1,10 +1,14 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
 using StatePocket.Configuration;
 using StatePocket.Contracts;
+using StatePocket.Hosting;
 using StatePocket.Json.Patch;
 using StatePocket.Json.Pointer;
 using StatePocket.Storage;
@@ -92,7 +96,8 @@ public sealed class ToolResponseTests : IDisposable
         SetValueTool tool = new(_store);
         var result = await tool.SetValueAsync(
             "smoke.test",
-            ParseJson("\"ok\""),
+            "ok",
+            JsonInputFormat.Text,
             cancellationToken: CancellationToken.None
         );
         Assert.Equal("default", result.Namespace);
@@ -108,7 +113,8 @@ public sealed class ToolResponseTests : IDisposable
         SetValueTool tool = new(_store);
         var result = await tool.SetValueAsync(
             "smoke.test",
-            ParseJson("\"ok\""),
+            "ok",
+            JsonInputFormat.Text,
             "codex",
             60,
             cancellationToken: CancellationToken.None
@@ -126,13 +132,15 @@ public sealed class ToolResponseTests : IDisposable
         SetValueTool tool = new(_store);
         var firstWrite = await tool.SetValueAsync(
             "cas",
-            ParseJson("\"first\""),
+            "first",
+            JsonInputFormat.Text,
             "codex",
             cancellationToken: CancellationToken.None
         );
         var secondWrite = await tool.SetValueAsync(
             "cas",
-            ParseJson("\"second\""),
+            "second",
+            JsonInputFormat.Text,
             "codex",
             expectedRevision: firstWrite.Revision,
             cancellationToken: CancellationToken.None
@@ -146,13 +154,15 @@ public sealed class ToolResponseTests : IDisposable
         SetValueTool tool = new(_store);
         await tool.SetValueAsync(
             "cas",
-            ParseJson("\"first\""),
+            "first",
+            JsonInputFormat.Text,
             "codex",
             cancellationToken: CancellationToken.None
         );
         var exception = await Assert.ThrowsAsync<McpException>(() => tool.SetValueAsync(
                 "cas",
-                ParseJson("\"second\""),
+                "second",
+                JsonInputFormat.Text,
                 "codex",
                 expectedRevision: 99,
                 cancellationToken: CancellationToken.None
@@ -171,7 +181,8 @@ public sealed class ToolResponseTests : IDisposable
         SetValueTool tool = new(_store);
         var result = await tool.SetValueAsync(
             "claimed",
-            ParseJson("\"first\""),
+            "first",
+            JsonInputFormat.Text,
             "codex",
             ifAbsent: true,
             cancellationToken: CancellationToken.None
@@ -185,13 +196,15 @@ public sealed class ToolResponseTests : IDisposable
         SetValueTool tool = new(_store);
         await tool.SetValueAsync(
             "claimed",
-            ParseJson("\"first\""),
+            "first",
+            JsonInputFormat.Text,
             "codex",
             cancellationToken: CancellationToken.None
         );
         var exception = await Assert.ThrowsAsync<McpException>(() => tool.SetValueAsync(
                 "claimed",
-                ParseJson("\"second\""),
+                "second",
+                JsonInputFormat.Text,
                 "codex",
                 ifAbsent: true,
                 cancellationToken: CancellationToken.None
@@ -207,7 +220,8 @@ public sealed class ToolResponseTests : IDisposable
         SetValueTool tool = new(_store);
         var exception = await Assert.ThrowsAsync<McpException>(() => tool.SetValueAsync(
                 "claimed",
-                ParseJson("\"value\""),
+                "value",
+                JsonInputFormat.Text,
                 "codex",
                 expectedRevision: 1,
                 ifAbsent: true,
@@ -223,7 +237,8 @@ public sealed class ToolResponseTests : IDisposable
         SetValueTool tool = new(_store);
         var result = await tool.SetValueAsync(
             "claimed-null",
-            ParseJson("\"first\""),
+            "first",
+            JsonInputFormat.Text,
             "codex",
             expectedRevision: null,
             ifAbsent: true,
@@ -239,12 +254,38 @@ public sealed class ToolResponseTests : IDisposable
         SetValueTool tool = new(_store);
         var exception = await Assert.ThrowsAsync<McpException>(() => tool.SetValueAsync(
                 "smoke.test",
-                ParseJson("\"ok\""),
+                "ok",
+                JsonInputFormat.Text,
                 cancellationToken: CancellationToken.None
             )
         );
         Assert.Equal("The database is busy with another write operation. Try again.", exception.Message);
         Assert.IsType<KvStoreBusyException>(exception.InnerException);
+    }
+
+    [Fact]
+    public async Task SetValue_ThrowsJsonExceptionWhenJsonFormatInputIsInvalid()
+    {
+        SetValueTool tool = new(_store);
+        var exception = await Assert.ThrowsAsync<JsonException>(() => tool.SetValueAsync(
+                "bad",
+                "{",
+                cancellationToken: CancellationToken.None
+            )
+        );
+        Assert.Equal("value must be valid JSON when format is 'json'.", exception.Message);
+    }
+
+    [Fact]
+    public async Task SetValue_ThrowsJsonExceptionWhenJsonFormatInputContainsDuplicateProperties()
+    {
+        SetValueTool tool = new(_store);
+        await Assert.ThrowsAsync<JsonException>(() => tool.SetValueAsync(
+                "bad",
+                """{"a":1,"a":2}""",
+                cancellationToken: CancellationToken.None
+            )
+        );
     }
 
     [Fact]
@@ -650,7 +691,8 @@ public sealed class ToolResponseTests : IDisposable
             "codex",
             "*",
             "$.status",
-            ParseJson("\"active\""),
+            "active",
+            JsonInputFormat.Text,
             ParsePointer("/profile/name"),
             cancellationToken: CancellationToken.None
         );
@@ -821,6 +863,35 @@ public sealed class ToolResponseTests : IDisposable
             )
         );
         Assert.Equal("equals requires query.", exception.Message);
+    }
+
+    [Fact]
+    public async Task QueryValues_ThrowsJsonExceptionWhenEqualsJsonIsInvalid()
+    {
+        QueryValuesTool tool = new(_store);
+        var exception = await Assert.ThrowsAsync<JsonException>(() => tool.QueryValuesAsync(
+                "codex",
+                "*",
+                "$.status",
+                "{",
+                cancellationToken: CancellationToken.None
+            )
+        );
+        Assert.Equal("equals must be valid JSON when format is 'json'.", exception.Message);
+    }
+
+    [Fact]
+    public async Task QueryValues_ThrowsJsonExceptionWhenEqualsJsonContainsDuplicateProperties()
+    {
+        QueryValuesTool tool = new(_store);
+        await Assert.ThrowsAsync<JsonException>(() => tool.QueryValuesAsync(
+                "codex",
+                "*",
+                "$.status",
+                """{"a":1,"a":2}""",
+                cancellationToken: CancellationToken.None
+            )
+        );
     }
 
     [Fact]
@@ -1003,7 +1074,7 @@ public sealed class ToolResponseTests : IDisposable
         );
         var result = await updateTool.PatchValueAsync(
             "profile",
-            Patch(Replace("/name", "\"new\"")),
+            SerializePatch(Patch(Replace("/name", "\"new\""))),
             "codex",
             CancellationToken.None
         );
@@ -1029,7 +1100,7 @@ public sealed class ToolResponseTests : IDisposable
         );
         var result = await updateTool.PatchValueAsync(
             "profile",
-            Patch(Replace("/name", "\"new\"")),
+            SerializePatch(Patch(Replace("/name", "\"new\""))),
             "codex",
             CancellationToken.None
         );
@@ -1098,13 +1169,40 @@ public sealed class ToolResponseTests : IDisposable
         await using var lockHandle = await AcquireWriteLockAsync();
         var exception = await Assert.ThrowsAsync<McpException>(() => patchTool.PatchValueAsync(
                 "profile",
-                Patch(Replace("/name", "\"new\"")),
+                SerializePatch(Patch(Replace("/name", "\"new\""))),
                 "codex",
                 CancellationToken.None
             )
         );
         Assert.Equal("The database is busy with another write operation. Try again.", exception.Message);
         Assert.IsType<KvStoreBusyException>(exception.InnerException);
+    }
+
+    [Fact]
+    public async Task PatchValue_ThrowsJsonExceptionWhenPatchTextIsInvalid()
+    {
+        PatchValueTool patchTool = new(_store);
+        var exception = await Assert.ThrowsAsync<JsonException>(() => patchTool.PatchValueAsync(
+                "profile",
+                """{"op":"replace","path":"/name","value":"new"}""",
+                "codex",
+                CancellationToken.None
+            )
+        );
+        Assert.Contains("could not be converted", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task PatchValue_ThrowsJsonExceptionWhenPatchContainsDuplicateProperties()
+    {
+        PatchValueTool patchTool = new(_store);
+        await Assert.ThrowsAsync<JsonException>(() => patchTool.PatchValueAsync(
+                "profile",
+                """[{ "op": "replace", "path": "/name", "value": "new", "value": "other" }]""",
+                "codex",
+                CancellationToken.None
+            )
+        );
     }
 
     [Fact]
@@ -1177,7 +1275,8 @@ public sealed class ToolResponseTests : IDisposable
         SetValueTool tool = new(_store);
         var exception = await Assert.ThrowsAsync<McpException>(() => tool.SetValueAsync(
                 "bad",
-                ParseJson("\"value\""),
+                "value",
+                JsonInputFormat.Text,
                 "codex",
                 expectedRevision: -1,
                 cancellationToken: CancellationToken.None
@@ -1508,6 +1607,11 @@ public sealed class ToolResponseTests : IDisposable
         return new JsonPatch(operations);
     }
 
+    private static string SerializePatch(JsonPatch patch)
+    {
+        return JsonSerializer.Serialize(patch, JsonPatchJsonContext.Default.JsonPatch);
+    }
+
     private static JsonNode? ParseNode(string json)
     {
         return JsonNode.Parse(json);
@@ -1526,6 +1630,9 @@ public sealed class ToolResponseTests : IDisposable
 
 internal static class ToolResponseTestExtensions
 {
+    private static readonly ServiceProvider McpServerServices = CreateMcpServerServices();
+    private static readonly McpServer McpServer = McpServerServices.GetRequiredService<McpServer>();
+
     public static Task<SetValueResult> SetValueCoreAsync(
         this SetValueTool tool,
         string key,
@@ -1537,10 +1644,14 @@ internal static class ToolResponseTestExtensions
     {
         return tool.SetValueAsync(
             key,
-            value,
+            value.GetRawText(),
+            JsonInputFormat.Json,
             @namespace,
             ttlSeconds,
-            cancellationToken: cancellationToken
+            null,
+            false,
+            null,
+            cancellationToken
         );
     }
 
@@ -1591,11 +1702,28 @@ internal static class ToolResponseTestExtensions
             @namespace,
             pattern,
             query,
-            hasEqualsArgument && !equals.HasValue ? ParseJsonElement("null") : equals,
+            equals?.GetRawText(),
+            JsonInputFormat.Json,
             ParsePointer(path),
             null,
             null,
-            null,
+            CreateCallToolRequestContext(hasEqualsArgument, equals),
+            cancellationToken
+        );
+    }
+
+    public static Task<PatchValueResult> PatchValueCoreAsync(
+        this PatchValueTool tool,
+        string key,
+        JsonPatch patch,
+        string? @namespace = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return tool.PatchValueAsync(
+            key,
+            JsonSerializer.Serialize(patch, JsonPatchJsonContext.Default.JsonPatch),
+            @namespace,
             cancellationToken
         );
     }
@@ -1626,26 +1754,48 @@ internal static class ToolResponseTestExtensions
         return tool.DeleteValueAsync(key, @namespace, cancellationToken);
     }
 
-    public static Task<PatchValueResult> PatchValueCoreAsync(
-        this PatchValueTool tool,
-        string key,
-        JsonPatch patch,
-        string? @namespace = null,
-        CancellationToken cancellationToken = default
-    )
-    {
-        return tool.PatchValueAsync(
-            key,
-            patch,
-            @namespace,
-            cancellationToken
-        );
-    }
-
     private static JsonElement ParseJsonElement(string json)
     {
         using var document = JsonDocument.Parse(json);
         return document.RootElement.Clone();
+    }
+
+    private static RequestContext<CallToolRequestParams>? CreateCallToolRequestContext(
+        bool hasEqualsArgument,
+        JsonElement? equals
+    )
+    {
+        if (!hasEqualsArgument)
+        {
+            return null;
+        }
+        var request = new JsonRpcRequest
+        {
+            JsonRpc = "2.0",
+            Id = new RequestId(1),
+            Method = RequestMethods.ToolsCall
+        };
+        IDictionary<string, JsonElement> arguments = new Dictionary<string, JsonElement>(StringComparer.Ordinal)
+        {
+            ["equals"] = equals ?? ParseJsonElement("null")
+        };
+        return new RequestContext<CallToolRequestParams>(
+            McpServer,
+            request,
+            new CallToolRequestParams
+            {
+                Name = QueryValuesTool.ToolName,
+                Arguments = arguments
+            }
+        );
+    }
+
+    private static ServiceProvider CreateMcpServerServices()
+    {
+        var services = new ServiceCollection();
+        StatePocketMcpRegistration.AddServer(services)
+                                  .WithStreamServerTransport(Stream.Null, Stream.Null);
+        return services.BuildServiceProvider();
     }
 
     private static JsonPointer? ParsePointer(string? path)

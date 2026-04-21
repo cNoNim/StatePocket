@@ -33,9 +33,13 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         )]
         string? query = null,
         [Description(
-            "Optional JSON value that at least one query match must equal. Cannot be used without query. Pass explicit null to match JSON nulls."
+            "Optional value that at least one query match must equal. When format is 'json', provide JSON text. When format is 'text', the raw string is matched as a JSON string. Pass explicit null to match JSON nulls."
         )]
-        JsonElement? equals = null,
+        string? equals = null,
+        [Description(
+            "How to interpret equals when it is provided. Use 'json' for JSON text or 'text' for a raw string. Defaults to 'json'."
+        )]
+        JsonInputFormat format = JsonInputFormat.Json,
         [Description(
             "Optional path to project part of each matched JSON value. Use JSON Pointer syntax starting with '/', for example '/profile/name' or '/items/0'. Omit to return whole values."
         )]
@@ -52,10 +56,12 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         CancellationToken cancellationToken = default
     )
     {
+        ToolArgumentHelper.ValidateFormatArgument(format, requestContext);
+        var parsedEquals = ParseEqualsArgument(equals, format, requestContext);
         var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
         var normalizedLimit = ToolArgumentHelper.NormalizeLimit(limit);
-        var hasEqualsArgument = requestContext?.Params.Arguments?.ContainsKey("equals") ?? equals.HasValue;
-        if (query is null && hasEqualsArgument)
+        if (query is null
+         && parsedEquals.HasEqualsArgument)
         {
             throw new McpException("equals requires query.");
         }
@@ -68,8 +74,8 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
                     cursor,
                     normalizedLimit,
                     jsonPath,
-                    hasEqualsArgument,
-                    equals,
+                    parsedEquals.HasEqualsArgument,
+                    parsedEquals.Value,
                     path,
                     cancellationToken
                 )
@@ -85,6 +91,22 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         {
             throw new McpException(exception.Message, exception);
         }
+    }
+
+    private static ParsedEqualsArgument ParseEqualsArgument(
+        string? equals,
+        JsonInputFormat format,
+        RequestContext<CallToolRequestParams>? requestContext
+    )
+    {
+        var hasEqualsArgument = requestContext?.Params.Arguments?.ContainsKey("equals") ?? equals is not null;
+        if (!hasEqualsArgument)
+        {
+            return new ParsedEqualsArgument(false, null);
+        }
+        return equals is null
+          ? new ParsedEqualsArgument(true, null)
+          : new ParsedEqualsArgument(true, ToolArgumentHelper.ParseJsonValue(equals, format, nameof(equals)));
     }
 
     private static JsonPath? ParseQuery(string? query)
@@ -187,4 +209,6 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
     }
 
     private sealed record QueryPageResult(IReadOnlyDictionary<string, GetValuesEntry> Values, string? NextCursor);
+
+    private sealed record ParsedEqualsArgument(bool HasEqualsArgument, JsonElement? Value);
 }

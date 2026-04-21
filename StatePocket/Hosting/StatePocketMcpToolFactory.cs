@@ -190,6 +190,7 @@ internal static class StatePocketMcpToolFactory
         {
             AllowDuplicateProperties = false
         };
+        options.TypeInfoResolverChain.Insert(0, ToolArgumentJsonContext.Default);
         options.TypeInfoResolverChain.Insert(0, ToolResultJsonContext.Default);
         options.TypeInfoResolverChain.Insert(0, JsonPatchJsonContext.Default);
         return options;

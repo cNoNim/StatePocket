@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Text.Json;
 using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
 using StatePocket.Storage;
@@ -23,7 +24,14 @@ internal sealed class SetValueTool(IKvStore kvStore)
     )]
     internal async Task<SetValueResult> SetValueAsync(
         [Description("Key to create or replace.")] string key,
-        [Description("JSON value to store.")] JsonElement value,
+        [Description(
+            "Value to store. Use format 'json' to parse this string as JSON text, or 'text' to store it as a JSON string."
+        )]
+        string value,
+        [Description(
+            "How to interpret value. Use 'json' for JSON text or 'text' for a raw string. Defaults to 'json'."
+        )]
+        JsonInputFormat format = JsonInputFormat.Json,
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
         [Description("Optional TTL in seconds. Omit to store the value without expiration.")] long? ttlSeconds = null,
         [Description(
@@ -34,17 +42,24 @@ internal sealed class SetValueTool(IKvStore kvStore)
             "When true, create the key only if no live value currently exists. Cannot be combined with expectedRevision."
         )]
         bool ifAbsent = false,
+        RequestContext<CallToolRequestParams>? requestContext = null,
         CancellationToken cancellationToken = default
     )
     {
         var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
+        ToolArgumentHelper.ValidateFormatArgument(format, requestContext);
+        if (value is null)
+        {
+            throw new JsonException("value is required and must not be null.");
+        }
+        var parsedValue = ToolArgumentHelper.ParseJsonValue(value, format, nameof(value));
         SetValueMetadata storedValue;
         try
         {
             storedValue = await kvStore.SetValueAsync(
                                             normalizedNamespace,
                                             key,
-                                            value,
+                                            parsedValue,
                                             ttlSeconds,
                                             expectedRevision,
                                             ifAbsent,

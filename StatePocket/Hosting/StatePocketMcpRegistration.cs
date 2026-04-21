@@ -129,6 +129,20 @@ internal static class StatePocketMcpRegistration
                     ]
                 };
             }
+            catch (ArgumentException exception)
+            {
+                return new CallToolResult
+                {
+                    IsError = true,
+                    Content =
+                    [
+                        new TextContentBlock
+                        {
+                            Text = exception.Message
+                        }
+                    ]
+                };
+            }
         };
     }
 

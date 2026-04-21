@@ -23,19 +23,20 @@ internal sealed class PatchValueTool(IKvStore kvStore)
     )]
     internal async Task<PatchValueResult> PatchValueAsync(
         [Description("Key to patch.")] string key,
-        [Description("JSON Patch document to apply.")] JsonPatch patch,
+        [Description("JSON Patch document to apply, encoded as JSON text.")] string patch,
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
         CancellationToken cancellationToken = default
     )
     {
         var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
+        var parsedPatch = ToolArgumentHelper.ParseJsonPatch(patch);
         KvValue? updatedValue;
         try
         {
             updatedValue = await kvStore.PatchValueAsync(
                                              normalizedNamespace,
                                              key,
-                                             patch,
+                                             parsedPatch,
                                              cancellationToken
                                          )
                                         .ConfigureAwait(false);
