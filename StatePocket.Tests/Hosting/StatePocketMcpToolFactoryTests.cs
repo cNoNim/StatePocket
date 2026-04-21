@@ -422,9 +422,8 @@ public sealed class StatePocketMcpToolFactoryTests
                 cancellationToken
             )
            .AsTask();
-        await Task.Delay(100, cancellationToken);
-        Assert.True(secondTask.IsCompleted);
         await secondEntered.Task.WaitAsync(cancellationToken);
+        Assert.True(secondTask.IsCompleted);
         releaseFirst.SetResult();
         await firstTask;
     }
@@ -489,7 +488,6 @@ public sealed class StatePocketMcpToolFactoryTests
                 cancellationToken
             )
            .AsTask();
-        await Task.Delay(100, cancellationToken);
         Assert.False(writerTask.IsCompleted);
         var secondReaderTask = handler(
                 CreateCallToolRequestContext(
@@ -503,12 +501,10 @@ public sealed class StatePocketMcpToolFactoryTests
                 cancellationToken
             )
            .AsTask();
-        await Task.Delay(100, cancellationToken);
         Assert.False(secondReaderTask.IsCompleted);
         Assert.False(secondReaderEntered.Task.IsCompleted);
         releaseFirstReader.SetResult();
         await writerEntered.Task.WaitAsync(cancellationToken);
-        await Task.Delay(100, cancellationToken);
         Assert.False(secondReaderTask.IsCompleted);
         Assert.False(secondReaderEntered.Task.IsCompleted);
         releaseWriter.SetResult();

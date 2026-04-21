@@ -25,6 +25,7 @@
         <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
+        <PackageReference Include="DotNext.Threading"/>
         <PackageReference Include="Microsoft.Data.Sqlite"/>
         <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables"/>
         <PackageReference Include="Microsoft.Extensions.Hosting"/>

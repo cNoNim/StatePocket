@@ -19,6 +19,7 @@ internal static class StatePocketMcpRegistration
     public static IMcpServerBuilder AddServer(IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+        services.AddSingleton<CallToolExecutionGate>();
         return services.AddMcpServer(static options =>
                             {
                                 options.ServerInfo = new Implementation
@@ -30,9 +31,43 @@ internal static class StatePocketMcpRegistration
                                 };
                             }
                         )
-                       .WithRequestFilters(static filters =>
-                            filters.AddCallToolFilter(CreateJsonExceptionCallToolFilter)
+                       .WithRequestFilters(static filters => filters.AddCallToolFilter(CreateSequentialCallToolFilter)
+                                                                    .AddCallToolFilter(
+                                                                         CreateJsonExceptionCallToolFilter
+                                                                     )
                         );
+    }
+
+    internal static McpRequestHandler<CallToolRequestParams, CallToolResult> CreateSequentialCallToolFilter(
+        McpRequestHandler<CallToolRequestParams, CallToolResult> next
+    )
+    {
+        return (request, cancellationToken) =>
+        {
+            var services = request.Services
+                        ?? request.Server.Services
+                        ?? throw new InvalidOperationException("Request services are unavailable.");
+            var gate = services.GetRequiredService<CallToolExecutionGate>();
+            return IsReadOnlyRequest(request)
+              ? gate.ExecuteReadAsync(
+                    (next, request),
+                    static (state, ct) => state.next(state.request, ct),
+                    cancellationToken
+                )
+              : gate.ExecuteWriteAsync(
+                    (next, request),
+                    static (state, ct) => state.next(state.request, ct),
+                    cancellationToken
+                );
+        };
+    }
+
+    private static bool IsReadOnlyRequest(RequestContext<CallToolRequestParams> request)
+    {
+        return request.MatchedPrimitive is McpServerTool
+        {
+            ProtocolTool.Annotations.ReadOnlyHint: true
+        };
     }
 
     internal static McpRequestHandler<CallToolRequestParams, CallToolResult> CreateJsonExceptionCallToolFilter(
