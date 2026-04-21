@@ -31,9 +31,11 @@ dotnet tool update --global StatePocket
 - Stores JSON values under string keys
 - Organizes data into namespaces
 - Supports optional TTL-based expiration
+- Supports conditional writes with `expectedRevision` and `ifAbsent`
 - Reads whole values or projected fragments via JSON Pointer
 - Queries stored values with JSONPath
 - Applies JSON Patch documents
+- Returns structured machine-readable errors for mutating tools
 - Persists data in a local SQLite database
 
 ## When It Fits
@@ -92,9 +94,14 @@ Tool filters accept comma-separated tool names.
 
 ## Important Behavior
 
-- Values must be valid JSON.
+- `set_value.value` and `query_values.equals` are strings interpreted by `format`: use `json` for JSON text and `text` for raw strings.
+- `patch_value.patch` is an RFC 6902 JSON Patch document encoded as JSON text.
+- Values must be valid JSON after input parsing.
 - Namespaces default to `default`.
+- Revisions are monotonic within a namespace, not per key. Use them with `expectedRevision` for compare-and-set writes.
 - `list_namespaces` only returns namespaces that currently contain at least one live, unexpired key.
+- Pagination resumes after the last returned key or namespace from `nextCursor`.
+- Mutating tools return structured MCP errors with machine-readable kinds.
 - Expired values are ignored by reads and best-effort cleanup runs on startup.
 - Data is stored in SQLite, so backing up or moving the state pocket is just copying one database file.
 
