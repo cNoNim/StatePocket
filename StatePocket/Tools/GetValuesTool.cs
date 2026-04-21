@@ -20,7 +20,7 @@ internal sealed class GetValuesTool(IKvStore kvStore)
         UseStructuredContent = true
     )]
     [Description(
-        "Retrieves multiple values by key from the selected namespace, with optional JSON Pointer projection."
+        "Retrieves multiple values by key from the selected namespace, with optional JSON Pointer projection. When present, returned revisions are monotonic and scoped to the namespace, not the key."
     )]
     internal async Task<GetValuesResult> GetValuesAsync(
         [Description("Keys to retrieve. Maximum 100 keys per request.")] string[] keys,

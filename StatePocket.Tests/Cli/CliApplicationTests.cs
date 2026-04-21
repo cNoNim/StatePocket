@@ -70,7 +70,7 @@ public sealed class CliApplicationTests
                     .GetBoolean()
         );
         Assert.Equal(
-            "Value to store. Use format 'json' to parse this string as JSON text, or 'text' to store it as a JSON string.",
+            "Value to store. Use format 'json' to parse this string as JSON text, or 'text' to store it as a JSON string. Example: value 'hello' with format 'text' stores the JSON string \"hello\".",
             document.RootElement.GetProperty("inputSchema")
                     .GetProperty("properties")
                     .GetProperty("value")

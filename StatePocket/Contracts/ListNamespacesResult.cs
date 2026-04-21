@@ -6,6 +6,6 @@ internal sealed record ListNamespacesResult
 {
     [Description("Page of namespace names in ascending order.")]
     public required IReadOnlyList<string> Namespaces { get; init; }
-    [Description("Opaque pagination cursor for the next page, or null when there are no more results.")]
+    [Description("Last namespace in this page to use as the next cursor, or null when there are no more results.")]
     public string? NextCursor { get; init; }
 }

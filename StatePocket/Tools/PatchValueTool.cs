@@ -18,7 +18,7 @@ internal sealed class PatchValueTool(IKvStore kvStore)
         UseStructuredContent = true
     )]
     [Description(
-        "Applies an RFC 6902 JSON Patch document to an existing value in the selected namespace and returns the updated value."
+        "Applies an RFC 6902 JSON Patch document to an existing value in the selected namespace and returns the updated value. The returned revision is monotonic and scoped to the namespace, not the key."
     )]
     internal async Task<PatchValueResult> PatchValueAsync(
         [Description("Key to patch.")] string key,

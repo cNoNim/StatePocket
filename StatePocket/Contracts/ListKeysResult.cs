@@ -8,6 +8,6 @@ internal sealed record ListKeysResult
     public required string Namespace { get; init; }
     [Description("Page of keys in ascending order.")]
     public required IReadOnlyList<string> Keys { get; init; }
-    [Description("Opaque pagination cursor for the next page, or null when there are no more results.")]
+    [Description("Last key in this page to use as the next cursor, or null when there are no more results.")]
     public string? NextCursor { get; init; }
 }

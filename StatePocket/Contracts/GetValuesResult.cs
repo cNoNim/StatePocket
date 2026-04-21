@@ -8,6 +8,6 @@ internal sealed record GetValuesResult
     public required string Namespace { get; init; }
     [Description("Entries keyed by the requested key names.")]
     public required IReadOnlyDictionary<string, GetValuesEntry> Values { get; init; }
-    [Description("Opaque pagination cursor for the next page, or null when there are no more results.")]
+    [Description("Always null. Included for response shape consistency.")]
     public string? NextCursor { get; init; }
 }

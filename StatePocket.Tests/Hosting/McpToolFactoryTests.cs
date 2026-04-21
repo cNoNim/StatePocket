@@ -52,13 +52,13 @@ public sealed class McpToolFactoryTests
     {
         var tool = CreateTool(SetValueTool.ToolName);
         Assert.Equal(
-            "Stores a JSON value under a key in the selected namespace, creating the key or replacing its current value.",
+            "Stores a JSON value under a key in the selected namespace, creating the key or replacing its current value. The returned revision is monotonic and scoped to the namespace, not the key.",
             tool.ProtocolTool.Description
         );
         var valueSchema = GetPropertySchema(tool, "value");
         var formatSchema = GetPropertySchema(tool, "format");
         Assert.Equal(
-            "Value to store. Use format 'json' to parse this string as JSON text, or 'text' to store it as a JSON string.",
+            "Value to store. Use format 'json' to parse this string as JSON text, or 'text' to store it as a JSON string. Example: value 'hello' with format 'text' stores the JSON string \"hello\".",
             valueSchema.GetProperty("description")
                        .GetString()
         );
@@ -229,7 +229,7 @@ public sealed class McpToolFactoryTests
         var equalsSchema = GetPropertySchema(tool, "equals");
         var formatSchema = GetPropertySchema(tool, "format");
         Assert.Equal(
-            "Optional value that at least one query match must equal. Requires query. When format is 'json', provide JSON text. When format is 'text', the raw string is matched as a JSON string. Pass explicit null to match JSON nulls.",
+            "Optional value that at least one query match must equal. Requires query. When format is 'json', provide JSON text. When format is 'text', the raw string is matched as a JSON string. Example: query '$.age' with equals '26' and format 'json' matches a numeric field, while query '$.tags[*]' with equals 'admin' and format 'text' matches when any tag equals the string 'admin'. Pass explicit null to match JSON nulls.",
             equalsSchema.GetProperty("description")
                         .GetString()
         );

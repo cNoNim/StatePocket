@@ -19,7 +19,9 @@ internal sealed class GetValueTool(IKvStore kvStore)
         OpenWorld = false,
         UseStructuredContent = true
     )]
-    [Description("Retrieves a single value by key from the selected namespace, with optional JSON Pointer projection.")]
+    [Description(
+        "Retrieves a single value by key from the selected namespace, with optional JSON Pointer projection. When present, the returned revision is monotonic and scoped to the namespace, not the key."
+    )]
     internal async Task<GetValueResult> GetValueAsync(
         [Description("Key to retrieve.")] string key,
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,

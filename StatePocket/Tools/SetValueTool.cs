@@ -19,12 +19,12 @@ internal sealed class SetValueTool(IKvStore kvStore)
         UseStructuredContent = true
     )]
     [Description(
-        "Stores a JSON value under a key in the selected namespace, creating the key or replacing its current value."
+        "Stores a JSON value under a key in the selected namespace, creating the key or replacing its current value. The returned revision is monotonic and scoped to the namespace, not the key."
     )]
     internal async Task<SetValueResult> SetValueAsync(
         [Description("Key to create or replace.")] string key,
         [Description(
-            "Value to store. Use format 'json' to parse this string as JSON text, or 'text' to store it as a JSON string."
+            "Value to store. Use format 'json' to parse this string as JSON text, or 'text' to store it as a JSON string. Example: value 'hello' with format 'text' stores the JSON string \"hello\"."
         )]
         string value,
         [Description(

@@ -24,7 +24,7 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         UseStructuredContent = true
     )]
     [Description(
-        "Finds values in the selected namespace by key pattern and optional JSONPath filter, with optional equality and JSON Pointer projection. Pagination uses an opaque scan cursor over keys in ascending order."
+        "Finds values in the selected namespace by key pattern and optional JSONPath filter, with optional equality and JSON Pointer projection. Pagination resumes after the last emitted key in ascending order. When present, returned revisions are monotonic and scoped to the namespace, not the key."
     )]
     internal async Task<QueryValuesResult> QueryValuesAsync(
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
@@ -34,7 +34,7 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         )]
         string? query = null,
         [Description(
-            "Optional value that at least one query match must equal. Requires query. When format is 'json', provide JSON text. When format is 'text', the raw string is matched as a JSON string. Pass explicit null to match JSON nulls."
+            "Optional value that at least one query match must equal. Requires query. When format is 'json', provide JSON text. When format is 'text', the raw string is matched as a JSON string. Example: query '$.age' with equals '26' and format 'json' matches a numeric field, while query '$.tags[*]' with equals 'admin' and format 'text' matches when any tag equals the string 'admin'. Pass explicit null to match JSON nulls."
         )]
         string? equals = null,
         [Description(
@@ -50,7 +50,7 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         )]
         int? limit = null,
         [Description(
-            "Optional opaque cursor for pagination. Pass the `nextCursor` value from a previous response to continue scanning after the last emitted match. Because filtering is applied while scanning, a follow-up request may return no matches even when `nextCursor` was present."
+            "Optional cursor for pagination. Pass the last key returned in `nextCursor` from a previous response to continue scanning after the last emitted match. Because filtering is applied while scanning, a follow-up request may return no matches even when `nextCursor` was present."
         )]
         string? cursor = null,
         RequestContext<CallToolRequestParams>? requestContext = null,
