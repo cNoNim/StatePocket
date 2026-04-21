@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
+using StatePocket.Errors;
 using StatePocket.Json.Pointer;
 using StatePocket.Storage;
 
@@ -29,7 +30,9 @@ internal sealed class GetValueTool(IKvStore kvStore)
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
+        ToolInvalidArgumentException.ThrowIfNull(key);
+        ToolInvalidArgumentException.ThrowIfEmptyOrWhitespace(@namespace, nameof(@namespace));
+        var normalizedNamespace = @namespace ?? ToolArgumentHelper.DefaultNamespace;
         var value = await kvStore.GetValueAsync(normalizedNamespace, key, cancellationToken)
                                  .ConfigureAwait(false);
         var projectedValue = GetValuesTool.ProjectValue(value, path);

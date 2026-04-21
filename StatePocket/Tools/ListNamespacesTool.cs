@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
+using StatePocket.Errors;
 using StatePocket.Storage;
 
 namespace StatePocket.Tools;
@@ -31,7 +32,8 @@ internal sealed class ListNamespacesTool(IKvStore kvStore)
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedLimit = ToolArgumentHelper.NormalizeLimit(limit);
+        ToolInvalidArgumentException.ThrowIfOutOfRange(limit, 1, ToolArgumentHelper.MaxResultItems);
+        var normalizedLimit = limit ?? ToolArgumentHelper.DefaultPageSize;
         var page = await kvStore.ListNamespacesPageAsync(
                                      pattern,
                                      cursor,

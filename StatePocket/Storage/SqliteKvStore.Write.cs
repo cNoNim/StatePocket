@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
+using StatePocket.Errors;
 using StatePocket.Json.Patch;
 
 namespace StatePocket.Storage;
@@ -73,22 +75,28 @@ internal sealed partial class SqliteKvStore
     {
         if (ttlSeconds < 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(ttlSeconds), "ttlSeconds must be greater than or equal to 0.");
+            throw new ToolValidationException(
+                "ttlSeconds must be greater than or equal to 0. (Parameter 'ttlSeconds')",
+                nameof(ttlSeconds)
+            );
         }
         if (expectedRevision < 0)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(expectedRevision),
-                "expectedRevision must be greater than or equal to 0."
+            throw new ToolValidationException(
+                "expectedRevision must be greater than or equal to 0. (Parameter 'expectedRevision')",
+                nameof(expectedRevision)
             );
         }
         if (ifAbsent && expectedRevision is not null)
         {
-            throw new ArgumentException("ifAbsent cannot be combined with expectedRevision.", nameof(ifAbsent));
+            throw new ToolValidationException(
+                "ifAbsent cannot be combined with expectedRevision. (Parameter 'ifAbsent')",
+                nameof(ifAbsent)
+            );
         }
         if (value.ValueKind == JsonValueKind.Undefined)
         {
-            throw new ArgumentException("value is required.", nameof(value));
+            throw new ToolValidationException("value is required. (Parameter 'value')", nameof(value));
         }
         var normalizedNamespace = NormalizeNamespace(@namespace);
         return ExecuteWriteAsync(() => ExecuteSetValueCoreAsync(
@@ -420,7 +428,15 @@ internal sealed partial class SqliteKvStore
         {
             return null;
         }
-        var updatedValue = patchDocument.Apply(ParseNode(currentEntry.Value.RawJson));
+        JsonNode? updatedValue;
+        try
+        {
+            updatedValue = patchDocument.Apply(ParseNode(currentEntry.Value.RawJson));
+        }
+        catch (JsonPatchException exception)
+        {
+            throw new ToolInvalidPatchException(exception.Message, innerException: exception);
+        }
         var updatedRawJson = updatedValue?.ToJsonString() ?? "null";
         var nextRevision = await AllocateNextRevisionAsync(
                 connection,

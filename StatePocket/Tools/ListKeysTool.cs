@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
+using StatePocket.Errors;
 using StatePocket.Storage;
 
 namespace StatePocket.Tools;
@@ -30,8 +31,10 @@ internal sealed class ListKeysTool(IKvStore kvStore)
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
-        var normalizedLimit = ToolArgumentHelper.NormalizeLimit(limit);
+        ToolInvalidArgumentException.ThrowIfEmptyOrWhitespace(@namespace, nameof(@namespace));
+        ToolInvalidArgumentException.ThrowIfOutOfRange(limit, 1, ToolArgumentHelper.MaxResultItems);
+        var normalizedNamespace = @namespace ?? ToolArgumentHelper.DefaultNamespace;
+        var normalizedLimit = limit ?? ToolArgumentHelper.DefaultPageSize;
         var page = await kvStore.ListKeysPageAsync(
                                      normalizedNamespace,
                                      pattern,

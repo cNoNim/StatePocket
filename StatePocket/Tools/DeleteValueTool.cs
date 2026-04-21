@@ -1,7 +1,7 @@
 using System.ComponentModel;
-using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
+using StatePocket.Errors;
 using StatePocket.Storage;
 
 namespace StatePocket.Tools;
@@ -24,20 +24,14 @@ internal sealed class DeleteValueTool(IKvStore kvStore)
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
-        bool deleted;
-        try
-        {
-            deleted = await kvStore.DeleteValueAsync(normalizedNamespace, key, cancellationToken)
+        ToolInvalidArgumentException.ThrowIfNull(key);
+        ToolInvalidArgumentException.ThrowIfEmptyOrWhitespace(@namespace, nameof(@namespace));
+        var normalizedNamespace = @namespace ?? ToolArgumentHelper.DefaultNamespace;
+        var deleted = await kvStore.DeleteValueAsync(normalizedNamespace, key, cancellationToken)
                                    .ConfigureAwait(false);
-        }
-        catch (KvStoreBusyException exception)
-        {
-            throw new McpException(exception.Message, exception);
-        }
         if (!deleted)
         {
-            throw new McpException($"Key '{key}' was not found in namespace '{normalizedNamespace}'.");
+            throw new ToolNotFoundException(normalizedNamespace, key);
         }
         return new DeleteValueResult
         {

@@ -3,9 +3,9 @@ using StatePocket.Tools;
 
 namespace StatePocket.Hosting;
 
-internal static class StatePocketMcpTools
+internal static class McpTools
 {
-    public static IReadOnlyCollection<StatePocketMcpToolRegistration> All { get; } =
+    public static IReadOnlyCollection<McpToolRegistration> All { get; } =
     [
         new(
             SetValueTool.ToolName,
@@ -14,7 +14,7 @@ internal static class StatePocketMcpTools
             {
                 var target = services.GetRequiredService<SetValueTool>();
                 var method = target.SetValueAsync;
-                return StatePocketMcpToolFactory.Create(method.Method, target, services);
+                return McpToolFactory.Create(method.Method, target, services);
             }
         ),
         new(
@@ -24,7 +24,7 @@ internal static class StatePocketMcpTools
             {
                 var target = services.GetRequiredService<GetValueTool>();
                 var method = target.GetValueAsync;
-                return StatePocketMcpToolFactory.Create(method.Method, target, services);
+                return McpToolFactory.Create(method.Method, target, services);
             }
         ),
         new(
@@ -34,7 +34,7 @@ internal static class StatePocketMcpTools
             {
                 var target = services.GetRequiredService<GetValuesTool>();
                 var method = target.GetValuesAsync;
-                return StatePocketMcpToolFactory.Create(method.Method, target, services);
+                return McpToolFactory.Create(method.Method, target, services);
             }
         ),
         new(
@@ -44,7 +44,7 @@ internal static class StatePocketMcpTools
             {
                 var target = services.GetRequiredService<QueryValuesTool>();
                 var method = target.QueryValuesAsync;
-                return StatePocketMcpToolFactory.Create(method.Method, target, services);
+                return McpToolFactory.Create(method.Method, target, services);
             }
         ),
         new(
@@ -54,7 +54,7 @@ internal static class StatePocketMcpTools
             {
                 var target = services.GetRequiredService<ListNamespacesTool>();
                 var method = target.ListNamespacesAsync;
-                return StatePocketMcpToolFactory.Create(method.Method, target, services);
+                return McpToolFactory.Create(method.Method, target, services);
             }
         ),
         new(
@@ -64,7 +64,7 @@ internal static class StatePocketMcpTools
             {
                 var target = services.GetRequiredService<ListKeysTool>();
                 var method = target.ListKeysAsync;
-                return StatePocketMcpToolFactory.Create(method.Method, target, services);
+                return McpToolFactory.Create(method.Method, target, services);
             }
         ),
         new(
@@ -74,7 +74,7 @@ internal static class StatePocketMcpTools
             {
                 var target = services.GetRequiredService<DeleteValueTool>();
                 var method = target.DeleteValueAsync;
-                return StatePocketMcpToolFactory.Create(method.Method, target, services);
+                return McpToolFactory.Create(method.Method, target, services);
             }
         ),
         new(
@@ -84,7 +84,7 @@ internal static class StatePocketMcpTools
             {
                 var target = services.GetRequiredService<PatchValueTool>();
                 var method = target.PatchValueAsync;
-                return StatePocketMcpToolFactory.Create(method.Method, target, services);
+                return McpToolFactory.Create(method.Method, target, services);
             }
         )
     ];

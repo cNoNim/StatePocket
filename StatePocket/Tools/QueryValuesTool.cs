@@ -1,9 +1,10 @@
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
-using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
+using StatePocket.Errors;
 using StatePocket.Json.Path;
 using StatePocket.Json.Pointer;
 using StatePocket.Storage;
@@ -56,47 +57,39 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         CancellationToken cancellationToken = default
     )
     {
-        ToolArgumentHelper.ValidateFormatArgument(format, requestContext);
+        ToolInvalidArgumentException.ThrowIfEmptyOrWhitespace(@namespace, nameof(@namespace));
+        ToolArgumentHelper.ThrowIfInvalidJsonInputFormat(format, requestContext);
+        ToolInvalidArgumentException.ThrowIfOutOfRange(limit, 1, ToolArgumentHelper.MaxResultItems);
         var parsedEquals = ParseEqualsArgument(equals, format, requestContext);
-        var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
-        var normalizedLimit = ToolArgumentHelper.NormalizeLimit(limit);
-        if (query is null
-         && parsedEquals.HasEqualsArgument)
-        {
-            throw new McpException("equals requires query.");
-        }
+        ToolArgumentHelper.ThrowIfEqualsRequiresQuery(query, parsedEquals.HasEqualsArgument);
         var jsonPath = ParseQuery(query);
-        try
+        var normalizedNamespace = @namespace ?? ToolArgumentHelper.DefaultNamespace;
+        var normalizedLimit = limit ?? ToolArgumentHelper.DefaultPageSize;
+        var pageResult = await LoadMatchingValuesAsync(
+                normalizedNamespace,
+                pattern,
+                cursor,
+                normalizedLimit,
+                jsonPath,
+                parsedEquals.HasEqualsArgument,
+                parsedEquals.Value,
+                path,
+                cancellationToken
+            )
+           .ConfigureAwait(false);
+        return new QueryValuesResult
         {
-            var pageResult = await LoadMatchingValuesAsync(
-                    normalizedNamespace,
-                    pattern,
-                    cursor,
-                    normalizedLimit,
-                    jsonPath,
-                    parsedEquals.HasEqualsArgument,
-                    parsedEquals.Value,
-                    path,
-                    cancellationToken
-                )
-               .ConfigureAwait(false);
-            return new QueryValuesResult
-            {
-                Namespace = normalizedNamespace,
-                Values = pageResult.Values,
-                NextCursor = pageResult.NextCursor
-            };
-        }
-        catch (JsonPathException exception)
-        {
-            throw new McpException(exception.Message, exception);
-        }
+            Namespace = normalizedNamespace,
+            Values = pageResult.Values,
+            NextCursor = pageResult.NextCursor
+        };
     }
 
     private static ParsedEqualsArgument ParseEqualsArgument(
         string? equals,
         JsonInputFormat format,
-        RequestContext<CallToolRequestParams>? requestContext
+        RequestContext<CallToolRequestParams>? requestContext,
+        [CallerArgumentExpression(nameof(equals))] string? equalsArgumentName = null
     )
     {
         var hasEqualsArgument = requestContext?.Params.Arguments?.ContainsKey("equals") ?? equals is not null;
@@ -106,7 +99,7 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         }
         return equals is null
           ? new ParsedEqualsArgument(true, null)
-          : new ParsedEqualsArgument(true, ToolArgumentHelper.ParseJsonValue(equals, format, nameof(equals)));
+          : new ParsedEqualsArgument(true, ToolArgumentHelper.ParseJsonValue(equals, format, equalsArgumentName));
     }
 
     private static JsonPath? ParseQuery(string? query)
@@ -115,13 +108,9 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         {
             return query is null ? null : new JsonPath(query);
         }
-        catch (ArgumentException exception)
+        catch (Exception exception) when (exception is ArgumentException or JsonPathException)
         {
-            throw new McpException(exception.Message, exception);
-        }
-        catch (JsonPathException exception)
-        {
-            throw new McpException(exception.Message, exception);
+            throw new ToolInvalidQueryException(exception.Message, innerException: exception);
         }
     }
 
@@ -136,7 +125,15 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         {
             return true;
         }
-        var matches = query.Evaluate(document);
+        IReadOnlyList<JsonPathMatch> matches;
+        try
+        {
+            matches = query.Evaluate(document);
+        }
+        catch (JsonPathException exception)
+        {
+            throw new ToolInvalidQueryException(exception.Message, innerException: exception);
+        }
         if (!hasEqualsArgument)
         {
             return matches.Count != 0;

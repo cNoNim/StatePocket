@@ -6,7 +6,7 @@ using ModelContextProtocol.Server;
 
 namespace StatePocket.Hosting;
 
-internal static class StatePocketMcpRegistration
+internal static class McpRegistration
 {
     internal const string ServerInstructions = """
                                                This server provides persistent local JSON key-value state for agents and tools.
@@ -15,10 +15,13 @@ internal static class StatePocketMcpRegistration
 
                                                It fits best for small durable state such as checkpoints, caches, preferences, task state, and structured memory that should survive across turns.
                                                """;
-    private static readonly Dictionary<string, StatePocketMcpToolRegistration> ToolRegistrations =
-        StatePocketMcpTools.All.ToDictionary(static tool => tool.Name, static tool => tool, StringComparer.Ordinal);
+    private static readonly Dictionary<string, McpToolRegistration> ToolRegistrations = McpTools.All.ToDictionary(
+        static tool => tool.Name,
+        static tool => tool,
+        StringComparer.Ordinal
+    );
 
-    public static StatePocketMcpToolRegistration? FindTool(string toolName)
+    public static McpToolRegistration? FindTool(string toolName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(toolName);
         return ToolRegistrations.TryGetValue(toolName, out var tool) ? tool : null;
@@ -43,7 +46,7 @@ internal static class StatePocketMcpRegistration
 
     internal static Implementation CreateServerInfo(Assembly? assembly = null)
     {
-        assembly ??= typeof(StatePocketMcpHostFactory).Assembly;
+        assembly ??= typeof(McpHostFactory).Assembly;
         var assemblyName = assembly.GetName();
         var title = assembly.GetCustomAttribute<AssemblyTitleAttribute>()
                            ?.Title;
@@ -115,33 +118,17 @@ internal static class StatePocketMcpRegistration
                 return await next(request, cancellationToken)
                    .ConfigureAwait(false);
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (JsonException exception)
             {
-                return new CallToolResult
-                {
-                    IsError = true,
-                    Content =
-                    [
-                        new TextContentBlock
-                        {
-                            Text = exception.Message
-                        }
-                    ]
-                };
+                return ToolErrorResultFactory.Create(exception);
             }
             catch (ArgumentException exception)
             {
-                return new CallToolResult
-                {
-                    IsError = true,
-                    Content =
-                    [
-                        new TextContentBlock
-                        {
-                            Text = exception.Message
-                        }
-                    ]
-                };
+                return ToolErrorResultFactory.Create(exception);
             }
         };
     }
@@ -166,7 +153,7 @@ internal static class StatePocketMcpRegistration
         }
     }
 
-    private static IEnumerable<StatePocketMcpToolRegistration> GetEnabledTools(IReadOnlyCollection<string> enabledTools)
+    private static IEnumerable<McpToolRegistration> GetEnabledTools(IReadOnlyCollection<string> enabledTools)
     {
         foreach (var toolName in enabledTools.OrderBy(static tool => tool, StringComparer.Ordinal))
         {

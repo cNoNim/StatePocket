@@ -1,6 +1,6 @@
-using ModelContextProtocol;
+using StatePocket.Errors;
 
 namespace StatePocket.Storage;
 
 internal sealed class KvStoreBusyException(string message, Exception innerException)
-    : McpException(message, innerException);
+    : ToolBusyException(message, innerException);

@@ -3,7 +3,7 @@ using ModelContextProtocol.Server;
 
 namespace StatePocket.Hosting;
 
-internal readonly record struct StatePocketMcpToolRegistration(
+internal readonly record struct McpToolRegistration(
     string Name,
     Action<IServiceCollection> RegisterServices,
     Func<IServiceProvider, McpServerTool> CreateTool

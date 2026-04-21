@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Time.Testing;
 using StatePocket.Configuration;
+using StatePocket.Errors;
 using StatePocket.Json.Patch;
 using StatePocket.Storage;
 
@@ -1041,7 +1042,7 @@ public sealed class SqliteKvStoreTests : IDisposable
             );
         }
 
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(ActionAsync);
+        await Assert.ThrowsAsync<ToolValidationException>(ActionAsync);
     }
 
     [Fact]
@@ -1058,7 +1059,7 @@ public sealed class SqliteKvStoreTests : IDisposable
             );
         }
 
-        await Assert.ThrowsAsync<ArgumentException>(ActionAsync);
+        await Assert.ThrowsAsync<ToolValidationException>(ActionAsync);
     }
 
     [Fact]
@@ -1165,7 +1166,7 @@ public sealed class SqliteKvStoreTests : IDisposable
             );
         }
 
-        await Assert.ThrowsAsync<JsonPatchException>(ActionAsync);
+        await Assert.ThrowsAsync<ToolInvalidPatchException>(ActionAsync);
         var storedEntry = await _store.GetValueAsync("default", "profile", CancellationToken.None);
         Assert.NotNull(storedEntry);
         Assert.Equal("{\"name\":\"old\",\"version\":1}", storedEntry.Value.GetRawText());

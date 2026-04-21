@@ -1,9 +1,8 @@
 using System.ComponentModel;
-using System.Text.Json;
-using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
+using StatePocket.Errors;
 using StatePocket.Storage;
 
 namespace StatePocket.Tools;
@@ -47,13 +46,12 @@ internal sealed class SetValueTool(IKvStore kvStore)
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
-        ToolArgumentHelper.ValidateFormatArgument(format, requestContext);
-        if (value is null)
-        {
-            throw new JsonException("value is required and must not be null.");
-        }
-        var parsedValue = ToolArgumentHelper.ParseJsonValue(value, format, nameof(value));
+        ToolInvalidArgumentException.ThrowIfNull(key);
+        ToolInvalidArgumentException.ThrowIfNull(value);
+        ToolInvalidArgumentException.ThrowIfEmptyOrWhitespace(@namespace, nameof(@namespace));
+        ToolArgumentHelper.ThrowIfInvalidJsonInputFormat(format, requestContext);
+        var parsedValue = ToolArgumentHelper.ParseJsonValue(value, format);
+        var normalizedNamespace = @namespace ?? ToolArgumentHelper.DefaultNamespace;
         SetValueMetadata storedValue;
         try
         {
@@ -70,15 +68,13 @@ internal sealed class SetValueTool(IKvStore kvStore)
         }
         catch (KvStoreConflictException exception)
         {
-            throw new McpException(exception.Message, exception);
-        }
-        catch (KvStoreBusyException exception)
-        {
-            throw new McpException(exception.Message, exception);
-        }
-        catch (ArgumentException exception)
-        {
-            throw new McpException(exception.Message, exception);
+            throw CreateConflictException(
+                normalizedNamespace,
+                key,
+                expectedRevision,
+                ifAbsent,
+                exception
+            );
         }
         return new SetValueResult
         {
@@ -88,5 +84,23 @@ internal sealed class SetValueTool(IKvStore kvStore)
             UpdatedAt = storedValue.UpdatedAt,
             Revision = storedValue.Revision
         };
+    }
+
+    private static ToolConflictException CreateConflictException(
+        string @namespace,
+        string key,
+        long? expectedRevision,
+        bool ifAbsent,
+        KvStoreConflictException exception
+    )
+    {
+        return ifAbsent
+          ? new ToolAlreadyExistsException(@namespace, key, exception.CurrentRevision ?? 0)
+          : new ToolRevisionConflictException(
+                @namespace,
+                key,
+                expectedRevision ?? 0,
+                exception.CurrentRevision
+            );
     }
 }

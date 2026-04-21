@@ -12,7 +12,7 @@ using StatePocket.Tools;
 
 namespace StatePocket.Tests.Hosting;
 
-public sealed class StatePocketMcpToolFactoryTests
+public sealed class McpToolFactoryTests
 {
     private readonly IServiceProvider _services = new ServiceCollection().AddSingleton<IKvStore, InMemoryKvStore>()
                                                                          .AddSingleton<GetValueTool>()
@@ -26,8 +26,8 @@ public sealed class StatePocketMcpToolFactoryTests
     [Fact]
     public void CreateServerInfo_UsesReadableServerMetadata()
     {
-        var serverInfo = StatePocketMcpRegistration.CreateServerInfo();
-        var informationalVersion = typeof(StatePocketMcpHostFactory)
+        var serverInfo = McpRegistration.CreateServerInfo();
+        var informationalVersion = typeof(McpHostFactory)
                                   .Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
                                  ?.InformationalVersion;
         Assert.Equal("statepocket", serverInfo.Name);
@@ -41,7 +41,7 @@ public sealed class StatePocketMcpToolFactoryTests
     [Fact]
     public void CreateServerInstructions_DescribePersistentJsonState()
     {
-        const string instructions = StatePocketMcpRegistration.ServerInstructions;
+        const string instructions = McpRegistration.ServerInstructions;
         Assert.Contains("persistent local JSON key-value state", instructions);
         Assert.Contains("durable namespaced JSON state", instructions);
         Assert.Contains("SQLite", instructions);
@@ -341,7 +341,7 @@ public sealed class StatePocketMcpToolFactoryTests
     [Fact]
     public void McpSchema_TreatsJsonPointerParameterAsString()
     {
-        var tool = StatePocketMcpToolFactory.Create((Func<JsonPointer, string>)DescribePointer, _services);
+        var tool = McpToolFactory.Create((Func<JsonPointer, string>)DescribePointer, _services);
         var propertySchema = GetPropertySchema(tool, "pointer");
         Assert.Equal(
             "string",
@@ -409,12 +409,14 @@ public sealed class StatePocketMcpToolFactoryTests
                 ["path"] = JsonSerializer.SerializeToElement("nested/value")
             }
         );
-        var handler = StatePocketMcpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
+        var handler = McpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
         var result = await handler(request, CancellationToken.None);
-        var error = Assert.Single(result.Content);
-        var text = Assert.IsType<TextContentBlock>(error);
-        Assert.True(result.IsError);
-        Assert.Contains("Invalid JSON Pointer path 'nested/value'.", text.Text);
+        var structuredContent = AssertStructuredErrorResult(result, "invalid_json");
+        Assert.Contains(
+            "Invalid JSON Pointer path 'nested/value'.",
+            structuredContent.GetProperty("message")
+                             .GetString()
+        );
     }
 
     [Fact]
@@ -431,12 +433,14 @@ public sealed class StatePocketMcpToolFactoryTests
                 ["patch"] = JsonSerializer.SerializeToElement("""[{"op":"remove","path":"nested/value"}]""")
             }
         );
-        var handler = StatePocketMcpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
+        var handler = McpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
         var result = await handler(request, CancellationToken.None);
-        var error = Assert.Single(result.Content);
-        var text = Assert.IsType<TextContentBlock>(error);
-        Assert.True(result.IsError);
-        Assert.Contains("Invalid JSON Pointer path 'nested/value'.", text.Text);
+        var structuredContent = AssertStructuredErrorResult(result, "invalid_patch");
+        Assert.Contains(
+            "Invalid JSON Pointer path 'nested/value'.",
+            structuredContent.GetProperty("message")
+                             .GetString()
+        );
     }
 
     [Fact]
@@ -454,12 +458,15 @@ public sealed class StatePocketMcpToolFactoryTests
                 ["format"] = JsonSerializer.SerializeToElement((JsonNode?)5)
             }
         );
-        var handler = StatePocketMcpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
+        var handler = McpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
         var result = await handler(request, CancellationToken.None);
-        var error = Assert.Single(result.Content);
-        var text = Assert.IsType<TextContentBlock>(error);
-        Assert.True(result.IsError);
-        Assert.Contains("format", text.Text, StringComparison.OrdinalIgnoreCase);
+        var structuredContent = AssertStructuredErrorResult(result, "invalid_argument");
+        Assert.Contains(
+            "format",
+            structuredContent.GetProperty("message")
+                             .GetString(),
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 
     [Fact]
@@ -477,12 +484,15 @@ public sealed class StatePocketMcpToolFactoryTests
                 ["format"] = JsonSerializer.SerializeToElement((JsonNode?)0)
             }
         );
-        var handler = StatePocketMcpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
+        var handler = McpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
         var result = await handler(request, CancellationToken.None);
-        var error = Assert.Single(result.Content);
-        var text = Assert.IsType<TextContentBlock>(error);
-        Assert.True(result.IsError);
-        Assert.Contains("format", text.Text, StringComparison.OrdinalIgnoreCase);
+        var structuredContent = AssertStructuredErrorResult(result, "invalid_argument");
+        Assert.Contains(
+            "format",
+            structuredContent.GetProperty("message")
+                             .GetString(),
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 
     [Fact]
@@ -499,12 +509,14 @@ public sealed class StatePocketMcpToolFactoryTests
                 ["value"] = JsonSerializer.SerializeToElement((JsonNode?)null)
             }
         );
-        var handler = StatePocketMcpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
+        var handler = McpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
         var result = await handler(request, CancellationToken.None);
-        var error = Assert.Single(result.Content);
-        var text = Assert.IsType<TextContentBlock>(error);
-        Assert.True(result.IsError);
-        Assert.Equal("value is required and must not be null.", text.Text);
+        var structuredContent = AssertStructuredErrorResult(result, "invalid_argument");
+        Assert.Equal(
+            "value must not be null.",
+            structuredContent.GetProperty("message")
+                             .GetString()
+        );
     }
 
     [Fact]
@@ -520,12 +532,15 @@ public sealed class StatePocketMcpToolFactoryTests
                 ["key"] = JsonSerializer.SerializeToElement("alpha")
             }
         );
-        var handler = StatePocketMcpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
+        var handler = McpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
         var result = await handler(request, CancellationToken.None);
-        var error = Assert.Single(result.Content);
-        var text = Assert.IsType<TextContentBlock>(error);
-        Assert.True(result.IsError);
-        Assert.Contains("required parameter 'value'", text.Text, StringComparison.Ordinal);
+        var structuredContent = AssertStructuredErrorResult(result, "invalid_argument");
+        Assert.Contains(
+            "required parameter 'value'",
+            structuredContent.GetProperty("message")
+                             .GetString(),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -543,12 +558,40 @@ public sealed class StatePocketMcpToolFactoryTests
                 ["format"] = JsonSerializer.SerializeToElement((JsonNode?)5)
             }
         );
-        var handler = StatePocketMcpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
+        var handler = McpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
         var result = await handler(request, CancellationToken.None);
-        var error = Assert.Single(result.Content);
-        var text = Assert.IsType<TextContentBlock>(error);
-        Assert.True(result.IsError);
-        Assert.Contains("format", text.Text, StringComparison.OrdinalIgnoreCase);
+        var structuredContent = AssertStructuredErrorResult(result, "invalid_argument");
+        Assert.Contains(
+            "format",
+            structuredContent.GetProperty("message")
+                             .GetString(),
+            StringComparison.OrdinalIgnoreCase
+        );
+    }
+
+    [Fact]
+    public async Task JsonExceptionCallToolFilter_PreservesUnsupportedNumericFormatForQueryValuesWhenQueryIsMissing()
+    {
+        var tool = CreateTool(QueryValuesTool.ToolName);
+        await using var serverServices = CreateMcpServerServices();
+        var request = CreateCallToolRequestContext(
+            serverServices.GetRequiredService<McpServer>(),
+            QueryValuesTool.ToolName,
+            new Dictionary<string, JsonElement>
+            {
+                ["equals"] = JsonSerializer.SerializeToElement("active"),
+                ["format"] = JsonSerializer.SerializeToElement((JsonNode?)5)
+            }
+        );
+        var handler = McpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
+        var result = await handler(request, CancellationToken.None);
+        var structuredContent = AssertStructuredErrorResult(result, "invalid_argument");
+        Assert.Contains(
+            "format",
+            structuredContent.GetProperty("message")
+                             .GetString(),
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 
     [Fact]
@@ -566,12 +609,61 @@ public sealed class StatePocketMcpToolFactoryTests
                 ["format"] = JsonSerializer.SerializeToElement((JsonNode?)1)
             }
         );
-        var handler = StatePocketMcpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
+        var handler = McpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
         var result = await handler(request, CancellationToken.None);
-        var error = Assert.Single(result.Content);
-        var text = Assert.IsType<TextContentBlock>(error);
-        Assert.True(result.IsError);
-        Assert.Contains("format", text.Text, StringComparison.OrdinalIgnoreCase);
+        var structuredContent = AssertStructuredErrorResult(result, "invalid_argument");
+        Assert.Contains(
+            "format",
+            structuredContent.GetProperty("message")
+                             .GetString(),
+            StringComparison.OrdinalIgnoreCase
+        );
+    }
+
+    [Fact]
+    public async Task JsonExceptionCallToolFilter_PreservesInvalidJsonForQueryValuesWhenQueryIsMissing()
+    {
+        var tool = CreateTool(QueryValuesTool.ToolName);
+        await using var serverServices = CreateMcpServerServices();
+        var request = CreateCallToolRequestContext(
+            serverServices.GetRequiredService<McpServer>(),
+            QueryValuesTool.ToolName,
+            new Dictionary<string, JsonElement>
+            {
+                ["equals"] = JsonSerializer.SerializeToElement("{")
+            }
+        );
+        var handler = McpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
+        var result = await handler(request, CancellationToken.None);
+        var structuredContent = AssertStructuredErrorResult(result, "invalid_json");
+        Assert.Equal(
+            "equals must be valid JSON when format is 'json'.",
+            structuredContent.GetProperty("message")
+                             .GetString()
+        );
+    }
+
+    [Fact]
+    public async Task CreatedTool_HandlesJsonBindingErrorsWithoutCallToolFilter()
+    {
+        var tool = CreateTool(SetValueTool.ToolName);
+        await using var serverServices = CreateMcpServerServices();
+        var request = CreateCallToolRequestContext(
+            serverServices.GetRequiredService<McpServer>(),
+            SetValueTool.ToolName,
+            new Dictionary<string, JsonElement>
+            {
+                ["key"] = JsonSerializer.SerializeToElement("alpha")
+            }
+        );
+        var result = await tool.InvokeAsync(request, CancellationToken.None);
+        var structuredContent = AssertStructuredErrorResult(result, "invalid_argument");
+        Assert.Contains(
+            "required parameter 'value'",
+            structuredContent.GetProperty("message")
+                             .GetString(),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -583,22 +675,21 @@ public sealed class StatePocketMcpToolFactoryTests
         TaskCompletionSource firstEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource secondEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource releaseFirst = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        var handler =
-            StatePocketMcpRegistration.CreateSequentialCallToolFilter(async (request, requestCancellationToken) =>
-                {
-                    if (request.Params is
-                        {
-                            Name: GetValueTool.ToolName
-                        })
+        var handler = McpRegistration.CreateSequentialCallToolFilter(async (request, requestCancellationToken) =>
+            {
+                if (request.Params is
                     {
-                        firstEntered.SetResult();
-                        await releaseFirst.Task.WaitAsync(requestCancellationToken);
-                        return new CallToolResult();
-                    }
-                    secondEntered.SetResult();
+                        Name: GetValueTool.ToolName
+                    })
+                {
+                    firstEntered.SetResult();
+                    await releaseFirst.Task.WaitAsync(requestCancellationToken);
                     return new CallToolResult();
                 }
-            );
+                secondEntered.SetResult();
+                return new CallToolResult();
+            }
+        );
         var firstTask = handler(
                 CreateCallToolRequestContext(
                     server,
@@ -641,29 +732,28 @@ public sealed class StatePocketMcpToolFactoryTests
         TaskCompletionSource writerEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource releaseWriter = new(TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource secondReaderEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        var handler =
-            StatePocketMcpRegistration.CreateSequentialCallToolFilter(async (request, requestCancellationToken) =>
+        var handler = McpRegistration.CreateSequentialCallToolFilter(async (request, requestCancellationToken) =>
+            {
+                switch (request.Params.Name)
                 {
-                    switch (request.Params.Name)
-                    {
-                        case GetValueTool.ToolName:
-                            if (!firstReaderEntered.Task.IsCompleted)
-                            {
-                                firstReaderEntered.SetResult();
-                                await releaseFirstReader.Task.WaitAsync(requestCancellationToken);
-                                return new CallToolResult();
-                            }
-                            secondReaderEntered.SetResult();
+                    case GetValueTool.ToolName:
+                        if (!firstReaderEntered.Task.IsCompleted)
+                        {
+                            firstReaderEntered.SetResult();
+                            await releaseFirstReader.Task.WaitAsync(requestCancellationToken);
                             return new CallToolResult();
-                        case SetValueTool.ToolName:
-                            writerEntered.SetResult();
-                            await releaseWriter.Task.WaitAsync(requestCancellationToken);
-                            return new CallToolResult();
-                        default:
-                            return new CallToolResult();
-                    }
+                        }
+                        secondReaderEntered.SetResult();
+                        return new CallToolResult();
+                    case SetValueTool.ToolName:
+                        writerEntered.SetResult();
+                        await releaseWriter.Task.WaitAsync(requestCancellationToken);
+                        return new CallToolResult();
+                    default:
+                        return new CallToolResult();
                 }
-            );
+            }
+        );
         var firstReaderTask = handler(
                 CreateCallToolRequestContext(
                     server,
@@ -722,8 +812,8 @@ public sealed class StatePocketMcpToolFactoryTests
 
     private McpServerTool CreateTool(string toolName)
     {
-        return StatePocketMcpRegistration.FindTool(toolName)
-                                        ?.Create(_services)
+        return McpRegistration.FindTool(toolName)
+                             ?.Create(_services)
             ?? throw new InvalidOperationException($"Tool '{toolName}' is not registered.");
     }
 
@@ -739,8 +829,8 @@ public sealed class StatePocketMcpToolFactoryTests
         services.AddSingleton<ListNamespacesTool>();
         services.AddSingleton<DeleteValueTool>();
         services.AddSingleton<PatchValueTool>();
-        StatePocketMcpRegistration.AddServer(services)
-                                  .WithStreamServerTransport(Stream.Null, Stream.Null);
+        McpRegistration.AddServer(services)
+                       .WithStreamServerTransport(Stream.Null, Stream.Null);
         return services.BuildServiceProvider();
     }
 
@@ -766,19 +856,36 @@ public sealed class StatePocketMcpToolFactoryTests
             }
         )
         {
-            MatchedPrimitive = StatePocketMcpRegistration.FindTool(toolName)
-                                                        ?.Create(
-                                                              server.Services
-                                                           ?? throw new InvalidOperationException(
-                                                                  "Server services are unavailable."
-                                                              )
-                                                          )
+            MatchedPrimitive = McpRegistration.FindTool(toolName)
+                                             ?.Create(
+                                                   server.Services
+                                                ?? throw new InvalidOperationException(
+                                                       "Server services are unavailable."
+                                                   )
+                                               )
         };
     }
 
     private static string DescribePointer(JsonPointer pointer)
     {
         return pointer.ToString();
+    }
+
+    private static JsonElement AssertStructuredErrorResult(CallToolResult result, string expectedKind)
+    {
+        Assert.True(result.IsError);
+        var content = Assert.Single(result.Content);
+        var text = Assert.IsType<TextContentBlock>(content);
+        var structuredContent = result.StructuredContent
+                             ?? throw new InvalidOperationException("Expected structured content.");
+        Assert.Equal(
+            expectedKind,
+            structuredContent.GetProperty("kind")
+                             .GetString()
+        );
+        using var contentDocument = JsonDocument.Parse(text.Text);
+        Assert.Equal(structuredContent.GetRawText(), contentDocument.RootElement.GetRawText());
+        return structuredContent;
     }
 
     private sealed class InMemoryKvStore : IKvStore

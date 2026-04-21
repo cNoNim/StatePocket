@@ -37,7 +37,7 @@ internal static class SchemaCommand
         string toolName,
         TextWriter outputWriter,
         TextWriter errorWriter,
-        Func<StatePocketMcpToolRegistration, ServiceProvider> createServices,
+        Func<McpToolRegistration, ServiceProvider> createServices,
         CancellationToken cancellationToken
     )
     {
@@ -47,7 +47,7 @@ internal static class SchemaCommand
         ArgumentNullException.ThrowIfNull(createServices);
         try
         {
-            if (StatePocketMcpRegistration.FindTool(toolName) is not
+            if (McpRegistration.FindTool(toolName) is not
                 {} toolRegistration)
             {
                 await errorWriter.WriteLineAsync(
@@ -90,12 +90,12 @@ internal static class SchemaCommand
         }
     }
 
-    private static ServiceProvider CreateServices(StatePocketMcpToolRegistration toolRegistration)
+    private static ServiceProvider CreateServices(McpToolRegistration toolRegistration)
     {
         ServiceCollection services = new();
         services.AddSingleton<IKvStore, SchemaOnlyKvStore>();
         toolRegistration.AddServices(services);
-        var mcpServerBuilder = StatePocketMcpRegistration.AddServer(services);
+        var mcpServerBuilder = McpRegistration.AddServer(services);
         toolRegistration.AddTool(mcpServerBuilder);
         return services.BuildServiceProvider();
     }

@@ -10,7 +10,7 @@ using StatePocket.Json.Pointer;
 
 namespace StatePocket.Hosting;
 
-internal static class StatePocketMcpToolFactory
+internal static class McpToolFactory
 {
     private static readonly JsonSerializerOptions SerializerOptions = CreateSerializerOptions();
 
@@ -34,7 +34,7 @@ internal static class StatePocketMcpToolFactory
                 SchemaCreateOptions = CreateSchemaCreateOptions()
             }
         );
-        return tool;
+        return new ToolErrorHandlingMcpServerTool(tool);
     }
 
     private static JsonObject CreateAnyJsonSchema(JsonObject? existing)

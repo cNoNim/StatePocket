@@ -55,7 +55,7 @@ internal static class McpCommand
                     Console.Error,
                     ToolSetResolver.Resolve,
                     EnvironmentOptions.Read,
-                    StatePocketMcpHostFactory.Create,
+                    McpHostFactory.Create,
                     InitializeHostAsync,
                     static (host, token) => host.StartAsync(token),
                     static (host, token) => host.WaitForShutdownAsync(token),

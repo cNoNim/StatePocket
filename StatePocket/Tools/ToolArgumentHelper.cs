@@ -1,16 +1,17 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
-using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
+using StatePocket.Errors;
 using StatePocket.Json.Patch;
 
 namespace StatePocket.Tools;
 
 internal static class ToolArgumentHelper
 {
-    private const string DefaultNamespace = "default";
+    public const string DefaultNamespace = "default";
     public const int DefaultPageSize = 50;
     public const int MaxResultItems = 100;
     private static readonly JsonDocumentOptions StrictJsonDocumentOptions = new()
@@ -18,28 +19,11 @@ internal static class ToolArgumentHelper
         AllowDuplicateProperties = false
     };
 
-    public static string NormalizeNamespace(string? @namespace)
-    {
-        if (@namespace is not null
-         && string.IsNullOrWhiteSpace(@namespace))
-        {
-            throw new McpException("namespace must not be empty or whitespace.");
-        }
-        return @namespace ?? DefaultNamespace;
-    }
-
-    public static int NormalizeLimit(int? limit)
-    {
-        var normalizedLimit = limit ?? DefaultPageSize;
-        return normalizedLimit switch
-        {
-            < 1 => throw new McpException("limit must be greater than or equal to 1."),
-            > MaxResultItems => throw new McpException($"limit must be less than or equal to {MaxResultItems}."),
-            _ => normalizedLimit
-        };
-    }
-
-    public static JsonElement ParseJsonValue(string value, JsonInputFormat format, string argumentName)
+    public static JsonElement ParseJsonValue(
+        string value,
+        JsonInputFormat format,
+        [CallerArgumentExpression(nameof(value))] string? argumentName = null
+    )
     {
         return format switch
         {
@@ -49,7 +33,7 @@ internal static class ToolArgumentHelper
         };
     }
 
-    public static void ValidateFormatArgument(
+    public static void ThrowIfInvalidJsonInputFormat(
         JsonInputFormat format,
         RequestContext<CallToolRequestParams>? requestContext
     )
@@ -57,22 +41,43 @@ internal static class ToolArgumentHelper
         if (requestContext?.Params.Arguments?.TryGetValue("format", out var rawFormat) == true
          && rawFormat.ValueKind != JsonValueKind.String)
         {
-            throw new JsonException("format must be 'text' or 'json'.");
+            throw new ToolInvalidArgumentException("format must be 'text' or 'json'.", "format");
         }
         if (format is not JsonInputFormat.Text and not JsonInputFormat.Json)
         {
-            throw new JsonException("format must be 'text' or 'json'.");
+            throw new ToolInvalidArgumentException("format must be 'text' or 'json'.", nameof(format));
+        }
+    }
+
+    public static void ThrowIfEqualsRequiresQuery(string? query, bool hasEqualsArgument)
+    {
+        if (query is null && hasEqualsArgument)
+        {
+            throw new ToolValidationException("equals requires query.", "equals");
         }
     }
 
     public static JsonPatch ParseJsonPatch(string patch)
     {
-        using var document = JsonDocument.Parse(patch, StrictJsonDocumentOptions);
-        return document.RootElement.Deserialize(JsonPatchJsonContext.Default.JsonPatch)
-            ?? throw new JsonException("Patch document must be a JSON array.");
+        try
+        {
+            using var document = JsonDocument.Parse(patch, StrictJsonDocumentOptions);
+            return document.RootElement.Deserialize(JsonPatchJsonContext.Default.JsonPatch)
+                ?? throw new ToolInvalidPatchException("Patch document must be a JSON array.");
+        }
+        catch (JsonException exception)
+        {
+            throw new ToolInvalidPatchException(
+                exception.Message,
+                path: exception.Path,
+                lineNumber: exception.LineNumber,
+                bytePositionInLine: exception.BytePositionInLine,
+                innerException: exception
+            );
+        }
     }
 
-    private static JsonElement ParseJsonText(string json, string argumentName)
+    private static JsonElement ParseJsonText(string json, string? argumentName)
     {
         try
         {
@@ -81,7 +86,13 @@ internal static class ToolArgumentHelper
         }
         catch (JsonException exception)
         {
-            throw new JsonException($"{argumentName} must be valid JSON when format is 'json'.", exception);
+            throw new ToolInvalidJsonException(
+                $"{argumentName ?? "value"} must be valid JSON when format is 'json'.",
+                exception.Path,
+                exception.LineNumber,
+                exception.BytePositionInLine,
+                exception
+            );
         }
     }
 

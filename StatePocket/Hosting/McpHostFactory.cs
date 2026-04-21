@@ -6,7 +6,7 @@ using StatePocket.Storage;
 
 namespace StatePocket.Hosting;
 
-internal static class StatePocketMcpHostFactory
+internal static class McpHostFactory
 {
     public static IHost Create(ResolvedOptions resolvedOptions)
     {
@@ -17,10 +17,10 @@ internal static class StatePocketMcpHostFactory
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<SqliteDatabaseInitializer>();
         builder.Services.AddSingleton<IKvStore, SqliteKvStore>();
-        StatePocketMcpRegistration.AddToolServices(builder.Services, resolvedOptions.EnabledTools);
-        var mcpServerBuilder = StatePocketMcpRegistration.AddServer(builder.Services)
-                                                         .WithStdioServerTransport();
-        StatePocketMcpRegistration.AddEnabledTools(mcpServerBuilder, resolvedOptions.EnabledTools);
+        McpRegistration.AddToolServices(builder.Services, resolvedOptions.EnabledTools);
+        var mcpServerBuilder = McpRegistration.AddServer(builder.Services)
+                                              .WithStdioServerTransport();
+        McpRegistration.AddEnabledTools(mcpServerBuilder, resolvedOptions.EnabledTools);
         return builder.Build();
     }
 }

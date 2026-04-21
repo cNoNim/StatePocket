@@ -1,7 +1,7 @@
 using System.ComponentModel;
-using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
+using StatePocket.Errors;
 using StatePocket.Json.Pointer;
 using StatePocket.Storage;
 
@@ -32,21 +32,11 @@ internal sealed class GetValuesTool(IKvStore kvStore)
         CancellationToken cancellationToken = default
     )
     {
-        ArgumentNullException.ThrowIfNull(keys);
-        foreach (var key in keys)
-        {
-            if (key is null)
-            {
-                throw new McpException("keys must not contain null values.");
-            }
-        }
-        if (keys.Length > ToolArgumentHelper.MaxResultItems)
-        {
-            throw new McpException(
-                $"keys must contain less than or equal to {ToolArgumentHelper.MaxResultItems} items."
-            );
-        }
-        var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
+        ToolInvalidArgumentException.ThrowIfNull(keys);
+        ToolInvalidArgumentException.ThrowIfContainsNull(keys);
+        ToolInvalidArgumentException.ThrowIfCountExceeds(keys, ToolArgumentHelper.MaxResultItems);
+        ToolInvalidArgumentException.ThrowIfEmptyOrWhitespace(@namespace, nameof(@namespace));
+        var normalizedNamespace = @namespace ?? ToolArgumentHelper.DefaultNamespace;
         var storedValues = await kvStore.GetValuesAsync(normalizedNamespace, keys, cancellationToken)
                                         .ConfigureAwait(false);
         Dictionary<string, GetValuesEntry> values = new(StringComparer.Ordinal);

@@ -8,6 +8,7 @@ using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Configuration;
 using StatePocket.Contracts;
+using StatePocket.Errors;
 using StatePocket.Hosting;
 using StatePocket.Json.Patch;
 using StatePocket.Json.Pointer;
@@ -149,7 +150,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task SetValue_ThrowsMcpExceptionWhenExpectedRevisionConflicts()
+    public async Task SetValue_ThrowsToolRevisionConflictExceptionWhenExpectedRevisionConflicts()
     {
         SetValueTool tool = new(_store);
         await tool.SetValueAsync(
@@ -159,7 +160,7 @@ public sealed class ToolResponseTests : IDisposable
             "codex",
             cancellationToken: CancellationToken.None
         );
-        var exception = await Assert.ThrowsAsync<McpException>(() => tool.SetValueAsync(
+        var exception = await Assert.ThrowsAsync<ToolRevisionConflictException>(() => tool.SetValueAsync(
                 "cas",
                 "second",
                 JsonInputFormat.Text,
@@ -172,7 +173,6 @@ public sealed class ToolResponseTests : IDisposable
             "Revision conflict for key 'cas' in namespace 'codex'. Expected revision 99, found 1.",
             exception.Message
         );
-        Assert.IsType<KvStoreConflictException>(exception.InnerException);
     }
 
     [Fact]
@@ -191,7 +191,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task SetValue_ThrowsMcpExceptionWhenIfAbsentConflicts()
+    public async Task SetValue_ThrowsToolAlreadyExistsExceptionWhenIfAbsentConflicts()
     {
         SetValueTool tool = new(_store);
         await tool.SetValueAsync(
@@ -201,7 +201,7 @@ public sealed class ToolResponseTests : IDisposable
             "codex",
             cancellationToken: CancellationToken.None
         );
-        var exception = await Assert.ThrowsAsync<McpException>(() => tool.SetValueAsync(
+        var exception = await Assert.ThrowsAsync<ToolAlreadyExistsException>(() => tool.SetValueAsync(
                 "claimed",
                 "second",
                 JsonInputFormat.Text,
@@ -211,14 +211,13 @@ public sealed class ToolResponseTests : IDisposable
             )
         );
         Assert.Equal("Key 'claimed' already exists in namespace 'codex'.", exception.Message);
-        Assert.IsType<KvStoreConflictException>(exception.InnerException);
     }
 
     [Fact]
-    public async Task SetValue_ThrowsMcpExceptionWhenIfAbsentIsCombinedWithExpectedRevision()
+    public async Task SetValue_ThrowsToolValidationExceptionWhenIfAbsentIsCombinedWithExpectedRevision()
     {
         SetValueTool tool = new(_store);
-        var exception = await Assert.ThrowsAsync<McpException>(() => tool.SetValueAsync(
+        var exception = await Assert.ThrowsAsync<ToolValidationException>(() => tool.SetValueAsync(
                 "claimed",
                 "value",
                 JsonInputFormat.Text,
@@ -248,11 +247,11 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task SetValue_ThrowsMcpExceptionWhenDatabaseIsLocked()
+    public async Task SetValue_ThrowsToolBusyExceptionWhenDatabaseIsLocked()
     {
         await using var lockHandle = await AcquireWriteLockAsync();
         SetValueTool tool = new(_store);
-        var exception = await Assert.ThrowsAsync<McpException>(() => tool.SetValueAsync(
+        var exception = await Assert.ThrowsAnyAsync<ToolBusyException>(() => tool.SetValueAsync(
                 "smoke.test",
                 "ok",
                 JsonInputFormat.Text,
@@ -260,32 +259,54 @@ public sealed class ToolResponseTests : IDisposable
             )
         );
         Assert.Equal("The database is busy with another write operation. Try again.", exception.Message);
-        Assert.IsType<KvStoreBusyException>(exception.InnerException);
+        Assert.IsType<KvStoreBusyException>(exception);
     }
 
     [Fact]
-    public async Task SetValue_ThrowsJsonExceptionWhenJsonFormatInputIsInvalid()
+    public async Task SetValue_ThrowsToolInvalidJsonExceptionWhenJsonFormatInputIsInvalid()
     {
         SetValueTool tool = new(_store);
-        var exception = await Assert.ThrowsAsync<JsonException>(() => tool.SetValueAsync(
-                "bad",
-                "{",
-                cancellationToken: CancellationToken.None
-            )
+        var exception = await Assert.ThrowsAsync<ToolInvalidJsonException>(() =>
+            tool.SetValueAsync("bad", "{", cancellationToken: CancellationToken.None)
         );
         Assert.Equal("value must be valid JSON when format is 'json'.", exception.Message);
     }
 
     [Fact]
-    public async Task SetValue_ThrowsJsonExceptionWhenJsonFormatInputContainsDuplicateProperties()
+    public async Task SetValue_ThrowsToolInvalidJsonExceptionWhenJsonFormatInputContainsDuplicateProperties()
     {
         SetValueTool tool = new(_store);
-        await Assert.ThrowsAsync<JsonException>(() => tool.SetValueAsync(
+        await Assert.ThrowsAsync<ToolInvalidJsonException>(() => tool.SetValueAsync(
                 "bad",
                 """{"a":1,"a":2}""",
                 cancellationToken: CancellationToken.None
             )
         );
+    }
+
+    [Fact]
+    public async Task SetValue_ThrowsToolInvalidArgumentExceptionWhenKeyIsNull()
+    {
+        SetValueTool tool = new(_store);
+        var exception = await Assert.ThrowsAsync<ToolInvalidArgumentException>(() =>
+            tool.SetValueAsync(
+                null!,
+                "ok",
+                JsonInputFormat.Text,
+                cancellationToken: CancellationToken.None
+            )
+        );
+        Assert.Equal("key must not be null.", exception.Message);
+    }
+
+    [Fact]
+    public async Task SetValue_ThrowsToolInvalidArgumentExceptionWhenValueIsNull()
+    {
+        SetValueTool tool = new(_store);
+        var exception = await Assert.ThrowsAsync<ToolInvalidArgumentException>(() =>
+            tool.SetValueAsync("alpha", null!, cancellationToken: CancellationToken.None)
+        );
+        Assert.Equal("value must not be null.", exception.Message);
     }
 
     [Fact]
@@ -384,6 +405,21 @@ public sealed class ToolResponseTests : IDisposable
         Assert.Null(result.ExpiresAt);
         Assert.Equal("2026-04-14T10:00:00.0000000Z", result.UpdatedAt);
         Assert.Equal(1, result.Revision);
+    }
+
+    [Fact]
+    public async Task GetValue_ThrowsToolInvalidArgumentExceptionWhenKeyIsNull()
+    {
+        GetValueTool tool = new(_store);
+        var exception = await Assert.ThrowsAsync<ToolInvalidArgumentException>(() =>
+            tool.GetValueAsync(
+                null!,
+                "codex",
+                null,
+                CancellationToken.None
+            )
+        );
+        Assert.Equal("key must not be null.", exception.Message);
     }
 
     [Fact]
@@ -512,10 +548,10 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task ListKeys_ThrowsMcpExceptionWhenLimitExceedsHardCap()
+    public async Task ListKeys_ThrowsToolInvalidArgumentExceptionWhenLimitExceedsHardCap()
     {
         ListKeysTool listTool = new(_store);
-        var exception = await Assert.ThrowsAsync<McpException>(() => listTool.ListKeysAsync(
+        var exception = await Assert.ThrowsAsync<ToolInvalidArgumentException>(() => listTool.ListKeysAsync(
                 "codex",
                 null,
                 ToolArgumentHelper.MaxResultItems + 1,
@@ -621,13 +657,14 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task GetValues_ThrowsMcpExceptionWhenKeyCountExceedsHardCap()
+    public async Task GetValues_ThrowsToolInvalidArgumentExceptionWhenKeyCountExceedsHardCap()
     {
         GetValuesTool getValuesTool = new(_store);
         var keys = Enumerable.Range(0, ToolArgumentHelper.MaxResultItems + 1)
                              .Select(static index => $"key-{index:D3}")
                              .ToArray();
-        var exception = await Assert.ThrowsAsync<McpException>(() => getValuesTool.GetValuesAsync(
+        var exception = await Assert.ThrowsAsync<ToolInvalidArgumentException>(() =>
+            getValuesTool.GetValuesAsync(
                 keys,
                 "codex",
                 null,
@@ -638,10 +675,10 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task GetValues_ThrowsMcpExceptionWhenKeysContainNull()
+    public async Task GetValues_ThrowsToolInvalidArgumentExceptionWhenKeysContainNull()
     {
         GetValuesTool getValuesTool = new(_store);
-        var exception = await Assert.ThrowsAsync<McpException>(() =>
+        var exception = await Assert.ThrowsAsync<ToolInvalidArgumentException>(() =>
             getValuesTool.GetValuesAsync(
                 ["one", null!],
                 "codex",
@@ -849,10 +886,10 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task QueryValuesCore_ThrowsMcpExceptionWhenEqualsIsPassedWithoutQuery()
+    public async Task QueryValuesCore_ThrowsToolValidationExceptionWhenEqualsIsPassedWithoutQuery()
     {
         QueryValuesTool tool = new(_store);
-        var exception = await Assert.ThrowsAsync<McpException>(() => tool.QueryValuesCoreAsync(
+        var exception = await Assert.ThrowsAsync<ToolValidationException>(() => tool.QueryValuesCoreAsync(
                 "codex",
                 "*",
                 null,
@@ -866,10 +903,11 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task QueryValues_ThrowsJsonExceptionWhenEqualsJsonIsInvalid()
+    public async Task QueryValues_ThrowsToolInvalidJsonExceptionWhenEqualsJsonIsInvalid()
     {
         QueryValuesTool tool = new(_store);
-        var exception = await Assert.ThrowsAsync<JsonException>(() => tool.QueryValuesAsync(
+        var exception = await Assert.ThrowsAsync<ToolInvalidJsonException>(() =>
+            tool.QueryValuesAsync(
                 "codex",
                 "*",
                 "$.status",
@@ -881,10 +919,10 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task QueryValues_ThrowsJsonExceptionWhenEqualsJsonContainsDuplicateProperties()
+    public async Task QueryValues_ThrowsToolInvalidJsonExceptionWhenEqualsJsonContainsDuplicateProperties()
     {
         QueryValuesTool tool = new(_store);
-        await Assert.ThrowsAsync<JsonException>(() => tool.QueryValuesAsync(
+        await Assert.ThrowsAsync<ToolInvalidJsonException>(() => tool.QueryValuesAsync(
                 "codex",
                 "*",
                 "$.status",
@@ -895,10 +933,10 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task QueryValuesCore_ThrowsMcpExceptionWhenQueryIsMalformed()
+    public async Task QueryValuesCore_ThrowsToolInvalidQueryExceptionWhenQueryIsMalformed()
     {
         QueryValuesTool tool = new(_store);
-        await Assert.ThrowsAsync<McpException>(() => tool.QueryValuesCoreAsync(
+        await Assert.ThrowsAsync<ToolInvalidQueryException>(() => tool.QueryValuesCoreAsync(
                 "codex",
                 "*",
                 "status",
@@ -911,10 +949,10 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task QueryValuesCore_ThrowsMcpExceptionWhenTopLevelCurrentNodeRootIsUsed()
+    public async Task QueryValuesCore_ThrowsToolInvalidQueryExceptionWhenTopLevelCurrentNodeRootIsUsed()
     {
         QueryValuesTool tool = new(_store);
-        await Assert.ThrowsAsync<McpException>(() => tool.QueryValuesCoreAsync(
+        await Assert.ThrowsAsync<ToolInvalidQueryException>(() => tool.QueryValuesCoreAsync(
                 "codex",
                 "*",
                 "@.status",
@@ -927,7 +965,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task QueryValuesCore_ThrowsMcpExceptionWhenRegexPatternIsInvalid()
+    public async Task QueryValuesCore_ThrowsToolInvalidQueryExceptionWhenRegexPatternIsInvalid()
     {
         QueryValuesTool tool = new(_store);
         SetValueTool setTool = new(_store);
@@ -938,7 +976,7 @@ public sealed class ToolResponseTests : IDisposable
             null,
             CancellationToken.None
         );
-        await Assert.ThrowsAsync<McpException>(() => tool.QueryValuesCoreAsync(
+        await Assert.ThrowsAsync<ToolInvalidQueryException>(() => tool.QueryValuesCoreAsync(
                 "codex",
                 "*",
                 "$.values[?match(@.name, '[')]",
@@ -951,10 +989,10 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task QueryValuesCore_ThrowsMcpExceptionWhenRegexPatternIsInvalidAndNoRowsAreScanned()
+    public async Task QueryValuesCore_ThrowsToolInvalidQueryExceptionWhenRegexPatternIsInvalidAndNoRowsAreScanned()
     {
         QueryValuesTool tool = new(_store);
-        await Assert.ThrowsAsync<McpException>(() => tool.QueryValuesCoreAsync(
+        await Assert.ThrowsAsync<ToolInvalidQueryException>(() => tool.QueryValuesCoreAsync(
                 "missing",
                 "*",
                 "$.values[?match(@.name, '[')]",
@@ -967,7 +1005,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task QueryValuesCore_ThrowsMcpExceptionWhenRuntimeRegexPatternFromDataIsInvalid()
+    public async Task QueryValuesCore_ThrowsToolInvalidQueryExceptionWhenRuntimeRegexPatternFromDataIsInvalid()
     {
         QueryValuesTool tool = new(_store);
         SetValueTool setTool = new(_store);
@@ -978,7 +1016,7 @@ public sealed class ToolResponseTests : IDisposable
             null,
             CancellationToken.None
         );
-        await Assert.ThrowsAsync<McpException>(() => tool.QueryValuesCoreAsync(
+        await Assert.ThrowsAsync<ToolInvalidQueryException>(() => tool.QueryValuesCoreAsync(
                 "codex",
                 "*",
                 "$.values[?match(@.name, @.pattern)]",
@@ -1017,31 +1055,37 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task DeleteValueCore_ThrowsMcpExceptionWhenKeyIsMissing()
+    public async Task DeleteValueCore_ThrowsToolNotFoundExceptionWhenKeyIsMissing()
     {
         DeleteValueTool tool = new(_store);
-        var exception = await Assert.ThrowsAsync<McpException>(() =>
+        var exception = await Assert.ThrowsAsync<ToolNotFoundException>(() =>
             tool.DeleteValueCoreAsync("missing", "codex", CancellationToken.None)
         );
         Assert.Equal("Key 'missing' was not found in namespace 'codex'.", exception.Message);
     }
 
     [Fact]
-    public async Task DeleteValue_ThrowsMcpExceptionWhenKeyIsMissing()
+    public async Task DeleteValue_ThrowsToolNotFoundExceptionWhenKeyIsMissing()
     {
         DeleteValueTool tool = new(_store);
-        var exception =
-            await Assert.ThrowsAsync<McpException>(() => tool.DeleteValueAsync(
-                    "missing",
-                    "codex",
-                    CancellationToken.None
-                )
-            );
+        var exception = await Assert.ThrowsAsync<ToolNotFoundException>(() =>
+            tool.DeleteValueAsync("missing", "codex", CancellationToken.None)
+        );
         Assert.Equal("Key 'missing' was not found in namespace 'codex'.", exception.Message);
     }
 
     [Fact]
-    public async Task DeleteValue_ThrowsMcpExceptionWhenDatabaseIsLocked()
+    public async Task DeleteValue_ThrowsToolInvalidArgumentExceptionWhenKeyIsNull()
+    {
+        DeleteValueTool tool = new(_store);
+        var exception = await Assert.ThrowsAsync<ToolInvalidArgumentException>(() =>
+            tool.DeleteValueAsync(null!, "codex", CancellationToken.None)
+        );
+        Assert.Equal("key must not be null.", exception.Message);
+    }
+
+    [Fact]
+    public async Task DeleteValue_ThrowsToolBusyExceptionWhenDatabaseIsLocked()
     {
         SetValueTool setTool = new(_store);
         DeleteValueTool deleteTool = new(_store);
@@ -1053,11 +1097,11 @@ public sealed class ToolResponseTests : IDisposable
             CancellationToken.None
         );
         await using var lockHandle = await AcquireWriteLockAsync();
-        var exception = await Assert.ThrowsAsync<McpException>(() =>
+        var exception = await Assert.ThrowsAnyAsync<ToolBusyException>(() =>
             deleteTool.DeleteValueAsync("gone", "codex", CancellationToken.None)
         );
         Assert.Equal("The database is busy with another write operation. Try again.", exception.Message);
-        Assert.IsType<KvStoreBusyException>(exception.InnerException);
+        Assert.IsType<KvStoreBusyException>(exception);
     }
 
     [Fact]
@@ -1113,10 +1157,10 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task PatchValueCore_ThrowsMcpExceptionWhenKeyIsMissing()
+    public async Task PatchValueCore_ThrowsToolNotFoundExceptionWhenKeyIsMissing()
     {
         PatchValueTool tool = new(_store);
-        var exception = await Assert.ThrowsAsync<McpException>(() => tool.PatchValueCoreAsync(
+        var exception = await Assert.ThrowsAsync<ToolNotFoundException>(() => tool.PatchValueCoreAsync(
                 "missing",
                 Patch(Replace("/name", "\"new\"")),
                 "codex",
@@ -1134,7 +1178,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task PatchValueCore_ThrowsMcpExceptionForInvalidPatch()
+    public async Task PatchValueCore_ThrowsToolInvalidPatchExceptionForInvalidPatch()
     {
         SetValueTool setTool = new(_store);
         PatchValueTool updateTool = new(_store);
@@ -1145,7 +1189,7 @@ public sealed class ToolResponseTests : IDisposable
             null,
             CancellationToken.None
         );
-        await Assert.ThrowsAsync<McpException>(() => updateTool.PatchValueCoreAsync(
+        await Assert.ThrowsAsync<ToolInvalidPatchException>(() => updateTool.PatchValueCoreAsync(
                 "profile",
                 Patch(Test("/name", "\"other\"")),
                 "codex",
@@ -1155,7 +1199,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task PatchValue_ThrowsMcpExceptionWhenDatabaseIsLocked()
+    public async Task PatchValue_ThrowsToolBusyExceptionWhenDatabaseIsLocked()
     {
         SetValueTool setTool = new(_store);
         PatchValueTool patchTool = new(_store);
@@ -1167,7 +1211,7 @@ public sealed class ToolResponseTests : IDisposable
             CancellationToken.None
         );
         await using var lockHandle = await AcquireWriteLockAsync();
-        var exception = await Assert.ThrowsAsync<McpException>(() => patchTool.PatchValueAsync(
+        var exception = await Assert.ThrowsAnyAsync<ToolBusyException>(() => patchTool.PatchValueAsync(
                 "profile",
                 SerializePatch(Patch(Replace("/name", "\"new\""))),
                 "codex",
@@ -1175,14 +1219,14 @@ public sealed class ToolResponseTests : IDisposable
             )
         );
         Assert.Equal("The database is busy with another write operation. Try again.", exception.Message);
-        Assert.IsType<KvStoreBusyException>(exception.InnerException);
+        Assert.IsType<KvStoreBusyException>(exception);
     }
 
     [Fact]
-    public async Task PatchValue_ThrowsJsonExceptionWhenPatchTextIsInvalid()
+    public async Task PatchValue_ThrowsToolInvalidPatchExceptionWhenPatchTextIsInvalid()
     {
         PatchValueTool patchTool = new(_store);
-        var exception = await Assert.ThrowsAsync<JsonException>(() => patchTool.PatchValueAsync(
+        var exception = await Assert.ThrowsAsync<ToolInvalidPatchException>(() => patchTool.PatchValueAsync(
                 "profile",
                 """{"op":"replace","path":"/name","value":"new"}""",
                 "codex",
@@ -1193,16 +1237,30 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task PatchValue_ThrowsJsonExceptionWhenPatchContainsDuplicateProperties()
+    public async Task PatchValue_ThrowsToolInvalidPatchExceptionWhenPatchContainsDuplicateProperties()
     {
         PatchValueTool patchTool = new(_store);
-        await Assert.ThrowsAsync<JsonException>(() => patchTool.PatchValueAsync(
+        await Assert.ThrowsAsync<ToolInvalidPatchException>(() => patchTool.PatchValueAsync(
                 "profile",
                 """[{ "op": "replace", "path": "/name", "value": "new", "value": "other" }]""",
                 "codex",
                 CancellationToken.None
             )
         );
+    }
+
+    [Fact]
+    public async Task PatchValue_ThrowsToolInvalidArgumentExceptionWhenKeyIsNull()
+    {
+        PatchValueTool patchTool = new(_store);
+        var exception = await Assert.ThrowsAsync<ToolInvalidArgumentException>(() => patchTool.PatchValueAsync(
+                null!,
+                SerializePatch(Patch(Replace("/name", "\"new\""))),
+                "codex",
+                CancellationToken.None
+            )
+        );
+        Assert.Equal("key must not be null.", exception.Message);
     }
 
     [Fact]
@@ -1254,10 +1312,10 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task SetValueCore_ThrowsMcpExceptionForInvalidInput()
+    public async Task SetValueCore_ThrowsToolValidationExceptionForInvalidInput()
     {
         SetValueTool tool = new(_store);
-        var exception = await Assert.ThrowsAsync<McpException>(() =>
+        var exception = await Assert.ThrowsAsync<ToolValidationException>(() =>
             tool.SetValueCoreAsync(
                 "bad",
                 ParseJson("\"value\""),
@@ -1270,10 +1328,10 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task SetValueCore_ThrowsMcpExceptionForInvalidExpectedRevision()
+    public async Task SetValueCore_ThrowsToolValidationExceptionForInvalidExpectedRevision()
     {
         SetValueTool tool = new(_store);
-        var exception = await Assert.ThrowsAsync<McpException>(() => tool.SetValueAsync(
+        var exception = await Assert.ThrowsAsync<ToolValidationException>(() => tool.SetValueAsync(
                 "bad",
                 "value",
                 JsonInputFormat.Text,
@@ -1289,7 +1347,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public Task SetValueCore_ThrowsMcpExceptionWhenNamespaceIsInvalid()
+    public Task SetValueCore_ThrowsToolInvalidArgumentExceptionWhenNamespaceIsInvalid()
     {
         SetValueTool tool = new(_store);
         return AssertInvalidNamespaceRejectedAsync(invalidNamespace => tool.SetValueCoreAsync(
@@ -1303,7 +1361,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public Task GetValueCore_ThrowsMcpExceptionWhenNamespaceIsInvalid()
+    public Task GetValueCore_ThrowsToolInvalidArgumentExceptionWhenNamespaceIsInvalid()
     {
         GetValueTool tool = new(_store);
         return AssertInvalidNamespaceRejectedAsync(invalidNamespace =>
@@ -1317,7 +1375,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public Task GetValuesCore_ThrowsMcpExceptionWhenNamespaceIsInvalid()
+    public Task GetValuesCore_ThrowsToolInvalidArgumentExceptionWhenNamespaceIsInvalid()
     {
         GetValuesTool tool = new(_store);
         return AssertInvalidNamespaceRejectedAsync(invalidNamespace =>
@@ -1331,7 +1389,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public Task QueryValuesCore_ThrowsMcpExceptionWhenNamespaceIsInvalid()
+    public Task QueryValuesCore_ThrowsToolInvalidArgumentExceptionWhenNamespaceIsInvalid()
     {
         QueryValuesTool tool = new(_store);
         return AssertInvalidNamespaceRejectedAsync(invalidNamespace => tool.QueryValuesCoreAsync(
@@ -1347,7 +1405,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public Task ListKeysCore_ThrowsMcpExceptionWhenNamespaceIsInvalid()
+    public Task ListKeysCore_ThrowsToolInvalidArgumentExceptionWhenNamespaceIsInvalid()
     {
         ListKeysTool tool = new(_store);
         return AssertInvalidNamespaceRejectedAsync(invalidNamespace =>
@@ -1356,7 +1414,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public Task DeleteValueCore_ThrowsMcpExceptionWhenNamespaceIsInvalid()
+    public Task DeleteValueCore_ThrowsToolInvalidArgumentExceptionWhenNamespaceIsInvalid()
     {
         DeleteValueTool tool = new(_store);
         return AssertInvalidNamespaceRejectedAsync(invalidNamespace =>
@@ -1365,7 +1423,7 @@ public sealed class ToolResponseTests : IDisposable
     }
 
     [Fact]
-    public Task PatchValueCore_ThrowsMcpExceptionWhenNamespaceIsInvalid()
+    public Task PatchValueCore_ThrowsToolInvalidArgumentExceptionWhenNamespaceIsInvalid()
     {
         PatchValueTool tool = new(_store);
         return AssertInvalidNamespaceRejectedAsync(invalidNamespace => tool.PatchValueCoreAsync(
@@ -1547,7 +1605,7 @@ public sealed class ToolResponseTests : IDisposable
                      "", "   "
                  })
         {
-            var exception = await Assert.ThrowsAsync<McpException>(() => action(invalidNamespace));
+            var exception = await Assert.ThrowsAsync<ToolInvalidArgumentException>(() => action(invalidNamespace));
             Assert.Equal("namespace must not be empty or whitespace.", exception.Message);
         }
     }
@@ -1793,8 +1851,8 @@ internal static class ToolResponseTestExtensions
     private static ServiceProvider CreateMcpServerServices()
     {
         var services = new ServiceCollection();
-        StatePocketMcpRegistration.AddServer(services)
-                                  .WithStreamServerTransport(Stream.Null, Stream.Null);
+        McpRegistration.AddServer(services)
+                       .WithStreamServerTransport(Stream.Null, Stream.Null);
         return services.BuildServiceProvider();
     }
 

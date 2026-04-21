@@ -1,8 +1,7 @@
 using System.ComponentModel;
-using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
-using StatePocket.Json.Patch;
+using StatePocket.Errors;
 using StatePocket.Storage;
 
 namespace StatePocket.Tools;
@@ -28,31 +27,18 @@ internal sealed class PatchValueTool(IKvStore kvStore)
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedNamespace = ToolArgumentHelper.NormalizeNamespace(@namespace);
+        ToolInvalidArgumentException.ThrowIfNull(key);
+        ToolInvalidArgumentException.ThrowIfEmptyOrWhitespace(@namespace, nameof(@namespace));
+        var normalizedNamespace = @namespace ?? ToolArgumentHelper.DefaultNamespace;
         var parsedPatch = ToolArgumentHelper.ParseJsonPatch(patch);
-        KvValue? updatedValue;
-        try
-        {
-            updatedValue = await kvStore.PatchValueAsync(
+        var updatedValue = await kvStore.PatchValueAsync(
                                              normalizedNamespace,
                                              key,
                                              parsedPatch,
                                              cancellationToken
                                          )
-                                        .ConfigureAwait(false);
-        }
-        catch (JsonPatchException exception)
-        {
-            throw new McpException(exception.Message, exception);
-        }
-        catch (KvStoreBusyException exception)
-        {
-            throw new McpException(exception.Message, exception);
-        }
-        if (updatedValue is null)
-        {
-            throw new McpException($"Key '{key}' was not found in namespace '{normalizedNamespace}'.");
-        }
+                                        .ConfigureAwait(false)
+                        ?? throw new ToolNotFoundException(normalizedNamespace, key);
         return new PatchValueResult
         {
             Namespace = normalizedNamespace,
