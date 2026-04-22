@@ -153,6 +153,18 @@ internal static class McpRegistration
         }
     }
 
+    public static void AddPublishedDocumentation(
+        IMcpServerBuilder mcpServerBuilder,
+        IReadOnlyCollection<string> enabledTools
+    )
+    {
+        ArgumentNullException.ThrowIfNull(mcpServerBuilder);
+        ArgumentNullException.ThrowIfNull(enabledTools);
+        var catalog = McpPublishedDocumentation.CreateCatalog(enabledTools);
+        mcpServerBuilder.Services.AddSingleton(catalog);
+        mcpServerBuilder.WithResources(McpPublishedDocumentation.CreateResources(catalog));
+    }
+
     private static IEnumerable<McpToolRegistration> GetEnabledTools(IReadOnlyCollection<string> enabledTools)
     {
         foreach (var toolName in enabledTools.OrderBy(static tool => tool, StringComparer.Ordinal))

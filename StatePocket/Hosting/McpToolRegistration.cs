@@ -12,7 +12,13 @@ internal readonly record struct McpToolRegistration(
     public McpServerTool Create(IServiceProvider services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        return CreateTool(services);
+        var tool = CreateTool(services);
+        if (services.GetService<McpPublishedDocumentation.PublishedDocumentationCatalog>() is
+            {} catalog)
+        {
+            McpPublishedDocumentation.AppendToolDocumentationLink(catalog, Name, tool);
+        }
+        return tool;
     }
 
     public void AddServices(IServiceCollection services)

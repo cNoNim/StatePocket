@@ -20,6 +20,7 @@ internal static class McpHostFactory
         McpRegistration.AddToolServices(builder.Services, resolvedOptions.EnabledTools);
         var mcpServerBuilder = McpRegistration.AddServer(builder.Services)
                                               .WithStdioServerTransport();
+        McpRegistration.AddPublishedDocumentation(mcpServerBuilder, resolvedOptions.EnabledTools);
         McpRegistration.AddEnabledTools(mcpServerBuilder, resolvedOptions.EnabledTools);
         return builder.Build();
     }

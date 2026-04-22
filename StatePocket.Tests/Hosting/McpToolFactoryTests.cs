@@ -48,12 +48,127 @@ public sealed class McpToolFactoryTests
     }
 
     [Fact]
+    public async Task AddPublishedDocumentation_RegistersEmbeddedDocs()
+    {
+        await using var services = CreateMcpServerServices([GetValueTool.ToolName, SetValueTool.ToolName]);
+        var resources = services.GetServices<McpServerResource>()
+                                .OrderBy(
+                                     static resource => resource.ProtocolResourceTemplate.UriTemplate,
+                                     StringComparer.Ordinal
+                                 )
+                                .ToArray();
+        Assert.Contains(resources, static resource => resource.ProtocolResource?.Uri == "statepocket://docs/about");
+        Assert.Contains(
+            resources,
+            static resource => resource.ProtocolResource?.Uri == "statepocket://docs/tools/set_value"
+        );
+    }
+
+    [Fact]
+    public async Task ReadPublishedDocumentation_ReturnsEmbeddedMarkdown()
+    {
+        await using var services = CreateMcpServerServices([GetValueTool.ToolName, SetValueTool.ToolName]);
+        var server = services.GetRequiredService<McpServer>();
+        var resource = services.GetServices<McpServerResource>()
+                               .Single(static candidate => candidate.ProtocolResource?.Uri == "statepocket://docs/about"
+                                );
+        var result = await resource.ReadAsync(
+            CreateReadResourceRequestContext(server, "statepocket://docs/about"),
+            CancellationToken.None
+        );
+        var content = Assert.Single(result.Contents);
+        var text = Assert.IsType<TextResourceContents>(content);
+        Assert.Equal("text/markdown", text.MimeType);
+        Assert.Contains("StatePocket is an MCP server", text.Text);
+        Assert.Contains("SQLite", text.Text);
+    }
+
+    [Fact]
+    public async Task AddPublishedDocumentation_FiltersDisabledToolDocs()
+    {
+        await using var services = CreateMcpServerServices([GetValueTool.ToolName]);
+        var resources = services.GetServices<McpServerResource>()
+                                .ToArray();
+        Assert.Contains(resources, static resource => resource.ProtocolResource?.Uri == "statepocket://docs/about");
+        Assert.Contains(
+            resources,
+            static resource => resource.ProtocolResource?.Uri == "statepocket://docs/concepts/namespaces"
+        );
+        Assert.Contains(
+            resources,
+            static resource => resource.ProtocolResource?.Uri == "statepocket://docs/concepts/json-pointer"
+        );
+        Assert.DoesNotContain(
+            resources,
+            static resource => resource.ProtocolResource?.Uri == "statepocket://docs/concepts/revisions"
+        );
+        Assert.DoesNotContain(
+            resources,
+            static resource => resource.ProtocolResource?.Uri == "statepocket://docs/workflows/compare-and-set"
+        );
+        Assert.DoesNotContain(
+            resources,
+            static resource => resource.ProtocolResource?.Uri == "statepocket://docs/tools/set_value"
+        );
+    }
+
+    [Fact]
+    public async Task ReadPublishedDocumentation_AboutGroupsAvailableDocsAndHidesDisabledDependencies()
+    {
+        await using var services = CreateMcpServerServices([GetValueTool.ToolName]);
+        var server = services.GetRequiredService<McpServer>();
+        var resource = services.GetServices<McpServerResource>()
+                               .Single(static candidate => candidate.ProtocolResource?.Uri == "statepocket://docs/about"
+                                );
+        var result = await resource.ReadAsync(
+            CreateReadResourceRequestContext(server, "statepocket://docs/about"),
+            CancellationToken.None
+        );
+        var content = Assert.Single(result.Contents);
+        var text = Assert.IsType<TextResourceContents>(content);
+        Assert.Contains("Core concepts:", text.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Suggested workflows:", text.Text, StringComparison.Ordinal);
+        Assert.Contains("statepocket://docs/concepts/namespaces", text.Text, StringComparison.Ordinal);
+        Assert.Contains("statepocket://docs/concepts/json-pointer", text.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("statepocket://docs/concepts/revisions", text.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("statepocket://docs/workflows/compare-and-set", text.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReadPublishedDocumentation_AboutGroupsConceptsAndWorkflowsByTag()
+    {
+        await using var services = CreateMcpServerServices(
+            [GetValueTool.ToolName, SetValueTool.ToolName, QueryValuesTool.ToolName, PatchValueTool.ToolName]
+        );
+        var server = services.GetRequiredService<McpServer>();
+        var resource = services.GetServices<McpServerResource>()
+                               .Single(static candidate => candidate.ProtocolResource?.Uri == "statepocket://docs/about"
+                                );
+        var result = await resource.ReadAsync(
+            CreateReadResourceRequestContext(server, "statepocket://docs/about"),
+            CancellationToken.None
+        );
+        var content = Assert.Single(result.Contents);
+        var text = Assert.IsType<TextResourceContents>(content);
+        Assert.Contains("Core concepts:", text.Text, StringComparison.Ordinal);
+        Assert.Contains("Suggested workflows:", text.Text, StringComparison.Ordinal);
+        Assert.Contains("statepocket://docs/concepts/revisions", text.Text, StringComparison.Ordinal);
+        Assert.Contains("statepocket://docs/workflows/compare-and-set", text.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SetValue_ExposesStringValueAndFormatSchemas()
     {
-        var tool = CreateTool(SetValueTool.ToolName);
-        Assert.Equal(
-            "Stores a JSON value under a key in the selected namespace, creating the key or replacing its current value. The returned revision is monotonic and scoped to the namespace, not the key.",
-            tool.ProtocolTool.Description
+        var tool = CreatePublishedTool(SetValueTool.ToolName);
+        Assert.StartsWith(
+            "Stores a JSON value under a key, with optional TTL and conditional write controls.",
+            tool.ProtocolTool.Description,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "\nSee also: statepocket://docs/tools/set_value",
+            tool.ProtocolTool.Description,
+            StringComparison.Ordinal
         );
         var valueSchema = GetPropertySchema(tool, "value");
         var formatSchema = GetPropertySchema(tool, "format");
@@ -271,10 +386,16 @@ public sealed class McpToolFactoryTests
     [Fact]
     public void ListNamespaces_ExposesLiveNamespaceDescription()
     {
-        var tool = CreateTool(ListNamespacesTool.ToolName);
-        Assert.Equal(
-            "Lists namespaces that currently contain at least one live, unexpired key, optionally filtered by a wildcard pattern.",
-            tool.ProtocolTool.Description
+        var tool = CreatePublishedTool(ListNamespacesTool.ToolName);
+        Assert.StartsWith(
+            "Lists live namespaces, optionally filtered by a wildcard pattern.",
+            tool.ProtocolTool.Description,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "\nSee also: statepocket://docs/tools/list_namespaces",
+            tool.ProtocolTool.Description,
+            StringComparison.Ordinal
         );
     }
 
@@ -891,21 +1012,45 @@ public sealed class McpToolFactoryTests
             ?? throw new InvalidOperationException($"Tool '{toolName}' is not registered.");
     }
 
-    private static ServiceProvider CreateMcpServerServices()
+    private static McpServerTool CreatePublishedTool(string toolName)
     {
+        using var services = CreateMcpServerServices([toolName]);
+        return McpRegistration.FindTool(toolName)
+                             ?.Create(services)
+            ?? throw new InvalidOperationException($"Tool '{toolName}' is not registered.");
+    }
+
+    private static ServiceProvider CreateMcpServerServices(IReadOnlyCollection<string>? enabledTools = null)
+    {
+        enabledTools ??= [.. McpTools.All.Select(static tool => tool.Name)];
         var services = new ServiceCollection();
         services.AddSingleton<IKvStore, InMemoryKvStore>();
-        services.AddSingleton<GetValueTool>();
-        services.AddSingleton<GetValuesTool>();
-        services.AddSingleton<SetValueTool>();
-        services.AddSingleton<QueryValuesTool>();
-        services.AddSingleton<ListKeysTool>();
-        services.AddSingleton<ListNamespacesTool>();
-        services.AddSingleton<DeleteValueTool>();
-        services.AddSingleton<PatchValueTool>();
-        McpRegistration.AddServer(services)
-                       .WithStreamServerTransport(Stream.Null, Stream.Null);
+        McpRegistration.AddToolServices(services, enabledTools);
+        var mcpServerBuilder = McpRegistration.AddServer(services)
+                                              .WithStreamServerTransport(Stream.Null, Stream.Null);
+        McpRegistration.AddPublishedDocumentation(mcpServerBuilder, enabledTools);
         return services.BuildServiceProvider();
+    }
+
+    private static RequestContext<ReadResourceRequestParams> CreateReadResourceRequestContext(
+        McpServer server,
+        string uri
+    )
+    {
+        var request = new JsonRpcRequest
+        {
+            JsonRpc = "2.0",
+            Id = new RequestId(1),
+            Method = RequestMethods.ResourcesRead
+        };
+        return new RequestContext<ReadResourceRequestParams>(
+            server,
+            request,
+            new ReadResourceRequestParams
+            {
+                Uri = uri
+            }
+        );
     }
 
     private static RequestContext<CallToolRequestParams> CreateCallToolRequestContext(

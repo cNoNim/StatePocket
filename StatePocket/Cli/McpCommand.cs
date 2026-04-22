@@ -54,7 +54,6 @@ internal static class McpCommand
                     commandLineOptions,
                     Console.Error,
                     ToolSetResolver.Resolve,
-                    EnvironmentOptions.Read,
                     McpHostFactory.Create,
                     InitializeHostAsync,
                     static (host, token) => host.StartAsync(token),
@@ -72,8 +71,7 @@ internal static class McpCommand
     internal static async Task<int> RunServerAsync(
         CommandLineOptions commandLineOptions,
         TextWriter errorWriter,
-        Func<CommandLineOptions, EnvironmentOptions, ResolvedOptions> resolveOptions,
-        Func<EnvironmentOptions> readEnvironmentOptions,
+        Func<CommandLineOptions, ResolvedOptions> resolveOptions,
         Func<ResolvedOptions, IHost> createHost,
         Func<IHost, CancellationToken, Task> initializeHostAsync,
         Func<IHost, CancellationToken, Task> startHostAsync,
@@ -85,7 +83,6 @@ internal static class McpCommand
                 commandLineOptions,
                 errorWriter,
                 resolveOptions,
-                readEnvironmentOptions,
                 createHost,
                 initializeHostAsync,
                 cancellationToken
@@ -139,8 +136,7 @@ internal static class McpCommand
     private static async Task<IHost?> CreateAndInitializeHostAsync(
         CommandLineOptions commandLineOptions,
         TextWriter errorWriter,
-        Func<CommandLineOptions, EnvironmentOptions, ResolvedOptions> resolveOptions,
-        Func<EnvironmentOptions> readEnvironmentOptions,
+        Func<CommandLineOptions, ResolvedOptions> resolveOptions,
         Func<ResolvedOptions, IHost> createHost,
         Func<IHost, CancellationToken, Task> initializeHostAsync,
         CancellationToken cancellationToken
@@ -149,7 +145,7 @@ internal static class McpCommand
         IHost? host = null;
         try
         {
-            var resolvedOptions = resolveOptions(commandLineOptions, readEnvironmentOptions());
+            var resolvedOptions = resolveOptions(commandLineOptions);
             host = createHost(resolvedOptions);
             await initializeHostAsync(host, cancellationToken)
                .ConfigureAwait(false);

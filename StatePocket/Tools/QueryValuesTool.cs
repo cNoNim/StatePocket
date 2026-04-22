@@ -23,9 +23,7 @@ internal sealed class QueryValuesTool(IKvStore kvStore)
         OpenWorld = false,
         UseStructuredContent = true
     )]
-    [Description(
-        "Finds values in the selected namespace by key pattern and optional JSONPath filter, with optional equality and JSON Pointer projection. Pagination resumes after the last emitted key in ascending order. When present, returned revisions are monotonic and scoped to the namespace, not the key."
-    )]
+    [Description("Scans values by key pattern and optional JSONPath filter, with optional equality matching.")]
     internal async Task<QueryValuesResult> QueryValuesAsync(
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
         [Description("Optional wildcard key pattern, for example 'user:*'.")] string? pattern = null,

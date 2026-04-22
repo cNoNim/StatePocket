@@ -21,6 +21,7 @@
 
     <ItemGroup>
         <None Include="..\README.md" Pack="true" PackagePath="\" Link="README.md" />
+        <EmbeddedResource Include="..\Docs\**\*.md" LogicalName="Docs/%(RecursiveDir)%(Filename)%(Extension)" />
         <AssemblyMetadata Include="PackageId" Value="$(PackageId)" />
         <AssemblyMetadata Include="PackageProjectUrl" Value="$(PackageProjectUrl)" />
         <AssemblyMetadata Include="ToolCommandName" Value="$(ToolCommandName)" />
@@ -45,5 +46,6 @@
         <PackageReference Include="Serilog.Formatting.Compact"/>
         <PackageReference Include="Serilog.Sinks.File"/>
         <PackageReference Include="System.CommandLine"/>
+        <PackageReference Include="Tomlyn"/>
     </ItemGroup>
 </Project>

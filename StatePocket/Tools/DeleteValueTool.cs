@@ -17,7 +17,7 @@ internal sealed class DeleteValueTool(IKvStore kvStore)
         OpenWorld = false,
         UseStructuredContent = true
     )]
-    [Description("Deletes a key from the selected namespace.")]
+    [Description("Deletes one key from a namespace.")]
     internal async Task<DeleteValueResult> DeleteValueAsync(
         [Description("Key to delete.")] string key,
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,

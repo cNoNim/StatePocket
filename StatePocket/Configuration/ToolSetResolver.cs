@@ -2,38 +2,21 @@ namespace StatePocket.Configuration;
 
 internal static class ToolSetResolver
 {
-    public static ResolvedOptions Resolve(CommandLineOptions commandLineOptions, EnvironmentOptions environmentOptions)
+    public static ResolvedOptions Resolve(CommandLineOptions commandLineOptions)
     {
         ArgumentNullException.ThrowIfNull(commandLineOptions);
-        ArgumentNullException.ThrowIfNull(environmentOptions);
-        var databasePath = FirstNonEmpty(commandLineOptions.DatabasePath, environmentOptions.DatabasePath);
-        if (string.IsNullOrWhiteSpace(databasePath))
-        {
-            throw new ConfigurationException(
-                "Database path is required. Provide --db-path or STATEPOCKET_MCP_DB_PATH."
-            );
-        }
-        return new ResolvedOptions(databasePath.Trim(), ResolveEnabledTools(commandLineOptions, environmentOptions));
+        var databasePath = commandLineOptions.DatabasePath;
+        return !string.IsNullOrWhiteSpace(databasePath)
+          ? new ResolvedOptions(databasePath.Trim(), ResolveEnabledTools(commandLineOptions))
+          : throw new ConfigurationException("Database path is required. Provide --db-path.");
     }
 
-    private static IReadOnlyCollection<string> ResolveEnabledTools(
-        CommandLineOptions commandLineOptions,
-        EnvironmentOptions environmentOptions
-    )
+    private static IReadOnlyCollection<string> ResolveEnabledTools(CommandLineOptions commandLineOptions)
     {
         ArgumentNullException.ThrowIfNull(commandLineOptions);
-        ArgumentNullException.ThrowIfNull(environmentOptions);
         HashSet<string> enabledTools = new(ToolNames.All, StringComparer.Ordinal);
-        var allowlist = ParseToolList(
-            FirstNonEmpty(commandLineOptions.EnableTools, environmentOptions.EnableTools),
-            "--enable-tools",
-            "STATEPOCKET_MCP_ENABLE_TOOLS"
-        );
-        var denylist = ParseToolList(
-            FirstNonEmpty(commandLineOptions.DisableTools, environmentOptions.DisableTools),
-            "--disable-tools",
-            "STATEPOCKET_MCP_DISABLE_TOOLS"
-        );
+        var allowlist = ParseToolList(commandLineOptions.EnableTools, "--enable-tools");
+        var denylist = ParseToolList(commandLineOptions.DisableTools, "--disable-tools");
         if (allowlist is not null)
         {
             enabledTools.IntersectWith(allowlist);
@@ -45,12 +28,7 @@ internal static class ToolSetResolver
         return [.. enabledTools.Order(StringComparer.Ordinal)];
     }
 
-    private static string? FirstNonEmpty(string? primary, string? fallback)
-    {
-        return !string.IsNullOrWhiteSpace(primary) ? primary : fallback;
-    }
-
-    private static HashSet<string>? ParseToolList(string? rawValue, string cliName, string environmentName)
+    private static HashSet<string>? ParseToolList(string? rawValue, string cliName)
     {
         if (string.IsNullOrWhiteSpace(rawValue))
         {
@@ -65,7 +43,7 @@ internal static class ToolSetResolver
             if (!ToolNames.All.Contains(tool, StringComparer.Ordinal))
             {
                 throw new ConfigurationException(
-                    $"Unknown tool '{tool}' in {cliName}/{environmentName}. Known tools: {string.Join(", ", ToolNames.All)}."
+                    $"Unknown tool '{tool}' in {cliName}. Known tools: {string.Join(", ", ToolNames.All)}."
                 );
             }
             tools.Add(tool);

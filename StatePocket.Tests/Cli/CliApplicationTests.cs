@@ -4,8 +4,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using StatePocket.Cli;
 using StatePocket.Configuration;
+using StatePocket.Hosting;
 using StatePocket.Json.Patch;
 using StatePocket.Storage;
+using StatePocket.Tools;
 
 namespace StatePocket.Tests.Cli;
 
@@ -17,8 +19,10 @@ public sealed class CliApplicationTests
         var (exitCode, output) = await CaptureConsoleAsync(static () => CliApplication.RunAsync(["--help"]));
         Assert.Equal(0, exitCode);
         Assert.Contains("mcp", output);
+        Assert.Contains("resource", output);
         Assert.Contains("schema", output);
         Assert.Contains("Run the StatePocket MCP server over stdio.", output);
+        Assert.Contains("Inspect one embedded documentation resource by URI or resource id.", output);
         Assert.Contains("Print the static MCP schema for a tool.", output);
     }
 
@@ -39,6 +43,75 @@ public sealed class CliApplicationTests
         Assert.Equal(0, exitCode);
         Assert.Contains("tool", output);
         Assert.Contains("Print the static MCP schema for a tool.", output);
+    }
+
+    [Fact]
+    public async Task RunAsync_ResourceHelpListsUriArgument()
+    {
+        var (exitCode, output) =
+            await CaptureConsoleAsync(static () => CliApplication.RunAsync(["resource", "--help"]));
+        Assert.Equal(0, exitCode);
+        Assert.Contains("--list", output);
+        Assert.Contains("resource", output);
+        Assert.Contains("Inspect one embedded documentation resource by URI or resource id.", output);
+    }
+
+    [Fact]
+    public async Task RunAsync_ResourceListWritesPublishedResourceUris()
+    {
+        var (exitCode, output) =
+            await CaptureConsoleAsync(static () => CliApplication.RunAsync(["resource", "--list"]));
+        Assert.Equal(0, exitCode);
+        Assert.Contains("statepocket://docs/about", output);
+        Assert.Contains("statepocket://docs/tools/set_value", output);
+    }
+
+    [Fact]
+    public async Task RunAsync_ResourceWithoutArgumentReturns1()
+    {
+        StringWriter outputWriter = new();
+        StringWriter errorWriter = new();
+        var exitCode = await ResourceCommand.RunAsync(
+            null,
+            false,
+            outputWriter,
+            errorWriter,
+            static () => McpPublishedDocumentation.CreateCatalog([GetValueTool.ToolName]),
+            CancellationToken.None
+        );
+        Assert.Equal(1, exitCode);
+        Assert.Equal("", outputWriter.ToString());
+        Assert.Contains(
+            "Missing resource id. Use --list to see embedded documentation resources.",
+            errorWriter.ToString()
+        );
+    }
+
+    [Fact]
+    public async Task RunAsync_ResourceAboutWritesEmbeddedMarkdown()
+    {
+        var (exitCode, output) =
+            await CaptureConsoleAsync(static () => CliApplication.RunAsync(["resource", "docs/about"]));
+        Assert.Equal(0, exitCode);
+        Assert.Contains("# About StatePocket", output);
+        Assert.Contains("StatePocket is an MCP server", output);
+    }
+
+    [Fact]
+    public async Task WriteResourceAsync_Returns1ForUnknownResource()
+    {
+        StringWriter outputWriter = new();
+        StringWriter errorWriter = new();
+        var exitCode = await ResourceCommand.WriteResourceAsync(
+            "docs/nope",
+            outputWriter,
+            errorWriter,
+            static () => McpPublishedDocumentation.CreateCatalog([GetValueTool.ToolName]),
+            CancellationToken.None
+        );
+        Assert.Equal(1, exitCode);
+        Assert.Equal("", outputWriter.ToString());
+        Assert.Contains("Unknown resource 'docs/nope'.", errorWriter.ToString());
     }
 
     [Fact]
@@ -63,6 +136,17 @@ public sealed class CliApplicationTests
             document.RootElement.GetProperty("annotations")
                     .GetProperty("title")
                     .GetString()
+        );
+        Assert.Equal(
+            "Stores a JSON value under a key, with optional TTL and conditional write controls.",
+            document.RootElement.GetProperty("description")
+                    .GetString()
+        );
+        Assert.DoesNotContain(
+            "statepocket://docs/tools/set_value",
+            document.RootElement.GetProperty("description")
+                    .GetString(),
+            StringComparison.Ordinal
         );
         Assert.False(
             document.RootElement.GetProperty("annotations")
@@ -203,8 +287,7 @@ public sealed class CliApplicationTests
         var exitCode = await McpCommand.RunServerAsync(
             new CommandLineOptions(null, null, null),
             errorWriter,
-            static (_, _) => throw new ConfigurationException("Unknown tool: nope"),
-            static () => new EnvironmentOptions(null, null, null),
+            static _ => throw new ConfigurationException("Unknown tool: nope"),
             static _ => new StubHost(),
             static (_, _) => Task.CompletedTask,
             static (_, _) => Task.CompletedTask,
@@ -222,8 +305,7 @@ public sealed class CliApplicationTests
         var exitCode = await McpCommand.RunServerAsync(
             new CommandLineOptions(null, null, null),
             errorWriter,
-            static (_, _) => new ResolvedOptions("/tmp/statepocket.db", ["set_value"]),
-            static () => new EnvironmentOptions(null, null, null),
+            static _ => new ResolvedOptions("/tmp/statepocket.db", ["set_value"]),
             static _ => new StubHost(),
             static (_, _) => throw new IOException("Permission denied."),
             static (_, _) => Task.CompletedTask,
@@ -245,8 +327,7 @@ public sealed class CliApplicationTests
         var exitCode = await McpCommand.RunServerAsync(
             new CommandLineOptions(null, null, null),
             errorWriter,
-            static (_, _) => new ResolvedOptions("/tmp/statepocket.db", ["set_value"]),
-            static () => new EnvironmentOptions(null, null, null),
+            static _ => new ResolvedOptions("/tmp/statepocket.db", ["set_value"]),
             _ => host,
             static (_, _) => throw new InvalidOperationException("Listener failed."),
             static (_, _) => Task.CompletedTask,
@@ -265,8 +346,7 @@ public sealed class CliApplicationTests
         var exitCode = await McpCommand.RunServerAsync(
             new CommandLineOptions(null, null, null),
             errorWriter,
-            static (_, _) => new ResolvedOptions("/tmp/statepocket.db", ["set_value"]),
-            static () => new EnvironmentOptions(null, null, null),
+            static _ => new ResolvedOptions("/tmp/statepocket.db", ["set_value"]),
             static _ => new StubHost(),
             static (_, _) => Task.CompletedTask,
             static (_, _) => throw new InvalidOperationException("Hosted service failed."),
@@ -287,8 +367,7 @@ public sealed class CliApplicationTests
         var exitCode = await McpCommand.RunServerAsync(
             new CommandLineOptions(null, null, null),
             errorWriter,
-            static (_, _) => new ResolvedOptions("/tmp/statepocket.db", ["set_value"]),
-            static () => new EnvironmentOptions(null, null, null),
+            static _ => new ResolvedOptions("/tmp/statepocket.db", ["set_value"]),
             static _ => new StubHost(),
             static (_, _) => Task.CompletedTask,
             static (_, _) => throw new IOException("Broken stdin."),
@@ -306,8 +385,7 @@ public sealed class CliApplicationTests
         var exception = await Assert.ThrowsAsync<IOException>(() => McpCommand.RunServerAsync(
                 new CommandLineOptions(null, null, null),
                 errorWriter,
-                static (_, _) => new ResolvedOptions("/tmp/statepocket.db", ["set_value"]),
-                static () => new EnvironmentOptions(null, null, null),
+                static _ => new ResolvedOptions("/tmp/statepocket.db", ["set_value"]),
                 static _ => new StubHost(),
                 static (_, _) => Task.CompletedTask,
                 static (_, _) => Task.CompletedTask,
@@ -328,8 +406,7 @@ public sealed class CliApplicationTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => McpCommand.RunServerAsync(
                 new CommandLineOptions(null, null, null),
                 TextWriter.Null,
-                static (_, _) => new ResolvedOptions("/tmp/statepocket.db", ["set_value"]),
-                static () => new EnvironmentOptions(null, null, null),
+                static _ => new ResolvedOptions("/tmp/statepocket.db", ["set_value"]),
                 _ => host,
                 static (_, token) => Task.FromCanceled(token),
                 static (_, _) => Task.CompletedTask,

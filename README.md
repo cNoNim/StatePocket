@@ -63,12 +63,6 @@ MCP server options:
 - `--enable-tools`
 - `--disable-tools`
 
-Environment variables:
-
-- `STATEPOCKET_MCP_DB_PATH`
-- `STATEPOCKET_MCP_ENABLE_TOOLS`
-- `STATEPOCKET_MCP_DISABLE_TOOLS`
-
 Tool filters accept comma-separated tool names.
 
 ## Tools

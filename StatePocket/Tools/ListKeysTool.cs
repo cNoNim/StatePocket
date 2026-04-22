@@ -18,7 +18,7 @@ internal sealed class ListKeysTool(IKvStore kvStore)
         OpenWorld = false,
         UseStructuredContent = true
     )]
-    [Description("Lists keys in the selected namespace, optionally filtered by a wildcard pattern.")]
+    [Description("Lists keys in one namespace, optionally filtered by a wildcard pattern.")]
     internal async Task<ListKeysResult> ListKeysAsync(
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
         [Description("Optional wildcard key pattern, for example 'user:*'.")] string? pattern = null,

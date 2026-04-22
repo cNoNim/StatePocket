@@ -18,9 +18,7 @@ internal sealed class SetValueTool(IKvStore kvStore)
         OpenWorld = false,
         UseStructuredContent = true
     )]
-    [Description(
-        "Stores a JSON value under a key in the selected namespace, creating the key or replacing its current value. The returned revision is monotonic and scoped to the namespace, not the key."
-    )]
+    [Description("Stores a JSON value under a key, with optional TTL and conditional write controls.")]
     internal async Task<SetValueResult> SetValueAsync(
         [Description("Key to create or replace.")] string key,
         [Description(

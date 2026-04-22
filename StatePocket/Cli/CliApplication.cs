@@ -15,6 +15,7 @@ internal static class CliApplication
     {
         RootCommand rootCommand = new("StatePocket durable local state for agents and tools.");
         rootCommand.Subcommands.Add(McpCommand.Build());
+        rootCommand.Subcommands.Add(ResourceCommand.Build());
         rootCommand.Subcommands.Add(SchemaCommand.Build());
         return rootCommand;
     }
