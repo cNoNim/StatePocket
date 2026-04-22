@@ -35,6 +35,8 @@ dotnet tool update --global StatePocket
 - Reads whole values or projected fragments via JSON Pointer
 - Queries stored values with JSONPath
 - Applies JSON Patch documents
+- Publishes embedded MCP documentation resources for tools, concepts, and workflows
+- Publishes runtime info for the current server instance
 - Returns structured machine-readable errors for mutating tools
 - Persists data in a local SQLite database
 
@@ -65,6 +67,27 @@ MCP server options:
 
 Tool filters accept comma-separated tool names.
 
+## Resources
+
+When running as an MCP server, `StatePocket` also publishes Markdown resources:
+
+- `statepocket://docs/about`
+- `statepocket://docs/tools/*`
+- `statepocket://docs/concepts/*`
+- `statepocket://docs/workflows/*`
+- `statepocket://info`
+
+The documentation resources are meant for agents and clients that want first-party usage notes directly from the server. `statepocket://info` exposes the current runtime state, including the active database path and working directory.
+
+The local CLI can inspect embedded documentation resources without starting the server:
+
+```bash
+statepocket resource --list
+statepocket resource statepocket://docs/about
+```
+
+`statepocket://info` is runtime-specific and is available from the running MCP server, not from the standalone `resource` command.
+
 ## Tools
 
 | Tool | Purpose |
@@ -93,9 +116,13 @@ Tool filters accept comma-separated tool names.
 - Values must be valid JSON after input parsing.
 - Namespaces default to `default`.
 - Revisions are monotonic within a namespace, not per key. Use them with `expectedRevision` for compare-and-set writes.
+- `expectedRevision` is checked against the current revision of the target key, while successful writes still advance the namespace revision clock.
+- `delete_value` is idempotent: missing keys return `deleted = false` instead of failing, and successful deletes include `deletedValue`.
 - `list_namespaces` only returns namespaces that currently contain at least one live, unexpired key.
-- Pagination resumes after the last returned key or namespace from `nextCursor`.
+- `list_keys`, `list_namespaces`, and `query_values` scan in ascending lexicographic order, and pagination resumes after the last returned key or namespace from `nextCursor`.
 - Mutating tools return structured MCP errors with machine-readable kinds.
+- Invalid JSON Pointer inputs return `invalid_pointer`.
+- `invalid_patch` errors can include `operationIndex`, `operation`, and `targetPath` when a parsed patch fails while applying one operation.
 - Expired values are ignored by reads and best-effort cleanup runs on startup.
 - Data is stored in SQLite, so backing up or moving the state pocket is just copying one database file.
 

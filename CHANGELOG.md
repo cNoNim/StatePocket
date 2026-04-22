@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3]
+
+- StatePocket MCP servers now publish embedded Markdown documentation resources under `statepocket://docs/*`, including tool, concept, workflow, and about pages that agents can read directly from the server.
+- Added the `statepocket://info` runtime resource with the active SQLite backend details, database path, and working directory, and server instructions now point clients at both the about page and runtime info.
+- Added the `statepocket resource` CLI command to list and print embedded documentation resources from a local installation.
+- `delete_value` is now idempotent: deleting a missing key succeeds with `deleted = false`, and successful deletes return `deletedValue`.
+- JSON Pointer validation failures now use the dedicated `invalid_pointer` error kind instead of being reported as generic invalid JSON.
+- `invalid_patch` payloads now include per-operation metadata such as `operationIndex`, `operation`, and `targetPath` when a parsed patch fails during application.
+- Documentation was expanded around revision semantics, wildcard filters, and lexicographic pagination so MCP clients can reason about compare-and-set behavior and cursor traversal more reliably.
+
 ## [0.1.2]
 
 - `set_value` and `query_values` now use explicit string inputs with `format: "json" | "text"` so MCP clients can pass JSON text or raw strings without relying on permissive `any` schemas.
