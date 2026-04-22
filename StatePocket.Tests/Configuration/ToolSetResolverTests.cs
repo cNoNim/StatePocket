@@ -33,4 +33,20 @@ public sealed class ToolSetResolverTests
         var exception = Assert.Throws<ConfigurationException>(() => ToolSetResolver.Resolve(commandLine));
         Assert.Contains("unknown_tool", exception.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Resolve_ThrowsForInMemoryDataSource()
+    {
+        CommandLineOptions commandLine = new(":memory:", null, null);
+        var exception = Assert.Throws<ConfigurationException>(() => ToolSetResolver.Resolve(commandLine));
+        Assert.Contains("In-memory SQLite datasources are not supported", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Resolve_AllowsFileUriDataSource()
+    {
+        CommandLineOptions commandLine = new("file:///tmp/statepocket.db?mode=rwc", null, null);
+        var resolved = ToolSetResolver.Resolve(commandLine);
+        Assert.Equal("file:///tmp/statepocket.db?mode=rwc", resolved.DatabasePath);
+    }
 }

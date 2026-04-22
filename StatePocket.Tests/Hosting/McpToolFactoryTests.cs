@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using StatePocket.Configuration;
 using StatePocket.Hosting;
 using StatePocket.Json.Patch;
 using StatePocket.Json.Pointer;
@@ -39,16 +40,17 @@ public sealed class McpToolFactoryTests
     }
 
     [Fact]
-    public void CreateServerInstructions_DescribePersistentJsonState()
+    public void CreateServerInstructions_DescribeStateAndPointToDocs()
     {
-        const string instructions = McpRegistration.ServerInstructions;
-        Assert.Contains("persistent local JSON key-value state", instructions);
+        var instructions = McpRegistration.ServerInstructions;
         Assert.Contains("durable namespaced JSON state", instructions);
         Assert.Contains("SQLite", instructions);
+        Assert.Contains("statepocket://docs/about", instructions);
+        Assert.Contains("statepocket://info", instructions);
     }
 
     [Fact]
-    public async Task AddPublishedDocumentation_RegistersEmbeddedDocs()
+    public async Task AddPublishedDocumentation_RegistersEmbeddedDocsAndInfoResource()
     {
         await using var services = CreateMcpServerServices([GetValueTool.ToolName, SetValueTool.ToolName]);
         var resources = services.GetServices<McpServerResource>()
@@ -62,6 +64,33 @@ public sealed class McpToolFactoryTests
             resources,
             static resource => resource.ProtocolResource?.Uri == "statepocket://docs/tools/set_value"
         );
+        Assert.Contains(resources, static resource => resource.ProtocolResource?.Uri == "statepocket://info");
+    }
+
+    [Fact]
+    public async Task AddPublishedDocumentation_PublishesDocumentTagsInMeta()
+    {
+        await using var services = CreateMcpServerServices([SetValueTool.ToolName]);
+        var resource = services.GetServices<McpServerResource>()
+                               .Single(static candidate =>
+                                    candidate.ProtocolResource?.Uri == "statepocket://docs/workflows/compare-and-set"
+                                );
+        var tags = resource.ProtocolResource?.Meta?["tags"]
+                          ?.AsArray();
+        Assert.NotNull(tags);
+        Assert.Equal(["advanced", "workflows"], [.. tags.Select(static tag => tag?.GetValue<string>()!)]);
+    }
+
+    [Fact]
+    public async Task AddPublishedDocumentation_PublishesRuntimeInfoTagsInMeta()
+    {
+        await using var services = CreateMcpServerServices([SetValueTool.ToolName]);
+        var resource = services.GetServices<McpServerResource>()
+                               .Single(static candidate => candidate.ProtocolResource?.Uri == "statepocket://info");
+        var tags = resource.ProtocolResource?.Meta?["tags"]
+                          ?.AsArray();
+        Assert.NotNull(tags);
+        Assert.Equal(["runtime"], [.. tags.Select(static tag => tag?.GetValue<string>()!)]);
     }
 
     [Fact]
@@ -81,6 +110,8 @@ public sealed class McpToolFactoryTests
         Assert.Equal("text/markdown", text.MimeType);
         Assert.Contains("StatePocket is an MCP server", text.Text);
         Assert.Contains("SQLite", text.Text);
+        Assert.Contains("statepocket://info", text.Text);
+        Assert.Contains("Related resources:", text.Text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -113,7 +144,7 @@ public sealed class McpToolFactoryTests
     }
 
     [Fact]
-    public async Task ReadPublishedDocumentation_AboutGroupsAvailableDocsAndHidesDisabledDependencies()
+    public async Task ReadPublishedDocumentation_GroupsAvailableDocsAndHidesDisabledDependencies()
     {
         await using var services = CreateMcpServerServices([GetValueTool.ToolName]);
         var server = services.GetRequiredService<McpServer>();
@@ -135,7 +166,7 @@ public sealed class McpToolFactoryTests
     }
 
     [Fact]
-    public async Task ReadPublishedDocumentation_AboutGroupsConceptsAndWorkflowsByTag()
+    public async Task ReadPublishedDocumentation_GroupsConceptsAndWorkflowsByTag()
     {
         await using var services = CreateMcpServerServices(
             [GetValueTool.ToolName, SetValueTool.ToolName, QueryValuesTool.ToolName, PatchValueTool.ToolName]
@@ -154,6 +185,89 @@ public sealed class McpToolFactoryTests
         Assert.Contains("Suggested workflows:", text.Text, StringComparison.Ordinal);
         Assert.Contains("statepocket://docs/concepts/revisions", text.Text, StringComparison.Ordinal);
         Assert.Contains("statepocket://docs/workflows/compare-and-set", text.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReadPublishedDocumentation_NonAboutPagesAlsoGroupLinksByTargetTags()
+    {
+        await using var services = CreateMcpServerServices([SetValueTool.ToolName]);
+        var server = services.GetRequiredService<McpServer>();
+        var resource = services.GetServices<McpServerResource>()
+                               .Single(static candidate =>
+                                    candidate.ProtocolResource?.Uri == "statepocket://docs/concepts/revisions"
+                                );
+        var result = await resource.ReadAsync(
+            CreateReadResourceRequestContext(server, "statepocket://docs/concepts/revisions"),
+            CancellationToken.None
+        );
+        var content = Assert.Single(result.Contents);
+        var text = Assert.IsType<TextResourceContents>(content);
+        Assert.DoesNotContain("Core concepts:", text.Text, StringComparison.Ordinal);
+        Assert.Contains("Suggested workflows:", text.Text, StringComparison.Ordinal);
+        Assert.Contains("statepocket://docs/workflows/compare-and-set", text.Text, StringComparison.Ordinal);
+        Assert.Contains("Related resources:", text.Text, StringComparison.Ordinal);
+        Assert.Contains("statepocket://docs/tools/set_value", text.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReadPublishedDocumentation_GroupsMultiTagDocsByKnownGroupingTag()
+    {
+        await using var services = CreateMcpServerServices([SetValueTool.ToolName]);
+        var server = services.GetRequiredService<McpServer>();
+        var resource = services.GetServices<McpServerResource>()
+                               .Single(static candidate => candidate.ProtocolResource?.Uri == "statepocket://docs/about"
+                                );
+        var result = await resource.ReadAsync(
+            CreateReadResourceRequestContext(server, "statepocket://docs/about"),
+            CancellationToken.None
+        );
+        var content = Assert.Single(result.Contents);
+        var text = Assert.IsType<TextResourceContents>(content);
+        Assert.Contains("Suggested workflows:", text.Text, StringComparison.Ordinal);
+        Assert.Contains("statepocket://docs/workflows/compare-and-set", text.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReadRuntimeInfoReturnsResolvedDatabasePath()
+    {
+        await using var services = CreateMcpServerServices(
+            [GetValueTool.ToolName, SetValueTool.ToolName],
+            "state/runtime.db"
+        );
+        var server = services.GetRequiredService<McpServer>();
+        var resource = services.GetServices<McpServerResource>()
+                               .Single(static candidate => candidate.ProtocolResource?.Uri == "statepocket://info");
+        var result = await resource.ReadAsync(
+            CreateReadResourceRequestContext(server, "statepocket://info"),
+            CancellationToken.None
+        );
+        var content = Assert.Single(result.Contents);
+        var text = Assert.IsType<TextResourceContents>(content);
+        Assert.Contains("- Storage backend: SQLite", text.Text, StringComparison.Ordinal);
+        Assert.Contains(Path.GetFullPath("state/runtime.db"), text.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("- Enabled tools:", text.Text, StringComparison.Ordinal);
+        Assert.Contains("- Working directory: ", text.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReadRuntimeInfoPreservesFileUriDataSource()
+    {
+        await using var services = CreateMcpServerServices(
+            [GetValueTool.ToolName, SetValueTool.ToolName],
+            "file:///tmp/statepocket-tests.db?mode=rwc"
+        );
+        var server = services.GetRequiredService<McpServer>();
+        var resource = services.GetServices<McpServerResource>()
+                               .Single(static candidate => candidate.ProtocolResource?.Uri == "statepocket://info");
+        var result = await resource.ReadAsync(
+            CreateReadResourceRequestContext(server, "statepocket://info"),
+            CancellationToken.None
+        );
+        var content = Assert.Single(result.Contents);
+        var text = Assert.IsType<TextResourceContents>(content);
+        Assert.Contains("- Database path: ", text.Text, StringComparison.Ordinal);
+        Assert.Contains("file:///tmp/statepocket-tests.db?mode=rwc", text.Text, StringComparison.Ordinal);
+        Assert.Contains("- Working directory: ", text.Text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -532,10 +646,15 @@ public sealed class McpToolFactoryTests
         );
         var handler = McpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
         var result = await handler(request, CancellationToken.None);
-        var structuredContent = AssertStructuredErrorResult(result, "invalid_json");
+        var structuredContent = AssertStructuredErrorResult(result, "invalid_pointer");
         Assert.Contains(
             "Invalid JSON Pointer path 'nested/value'.",
             structuredContent.GetProperty("message")
+                             .GetString()
+        );
+        Assert.Equal(
+            "path",
+            structuredContent.GetProperty("argument")
                              .GetString()
         );
     }
@@ -1020,15 +1139,20 @@ public sealed class McpToolFactoryTests
             ?? throw new InvalidOperationException($"Tool '{toolName}' is not registered.");
     }
 
-    private static ServiceProvider CreateMcpServerServices(IReadOnlyCollection<string>? enabledTools = null)
+    private static ServiceProvider CreateMcpServerServices(
+        IReadOnlyCollection<string>? enabledTools = null,
+        string databasePath = "/tmp/statepocket-tests.db"
+    )
     {
         enabledTools ??= [.. McpTools.All.Select(static tool => tool.Name)];
+        var resolvedOptions = new ResolvedOptions(databasePath, enabledTools);
         var services = new ServiceCollection();
+        services.AddSingleton(resolvedOptions);
         services.AddSingleton<IKvStore, InMemoryKvStore>();
         McpRegistration.AddToolServices(services, enabledTools);
         var mcpServerBuilder = McpRegistration.AddServer(services)
                                               .WithStreamServerTransport(Stream.Null, Stream.Null);
-        McpRegistration.AddPublishedDocumentation(mcpServerBuilder, enabledTools);
+        McpRegistration.AddPublishedDocumentation(mcpServerBuilder, resolvedOptions);
         return services.BuildServiceProvider();
     }
 

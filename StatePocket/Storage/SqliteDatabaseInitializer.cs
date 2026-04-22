@@ -40,7 +40,7 @@ internal sealed class SqliteDatabaseInitializer(ResolvedOptions resolvedOptions)
 
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
-        var directoryPath = Path.GetDirectoryName(resolvedOptions.DatabasePath);
+        var directoryPath = SqliteDataSource.GetDirectoryPath(resolvedOptions.DatabasePath);
         if (!string.IsNullOrEmpty(directoryPath))
         {
             Directory.CreateDirectory(directoryPath);

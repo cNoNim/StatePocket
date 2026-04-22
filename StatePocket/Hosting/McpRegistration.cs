@@ -3,18 +3,18 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using StatePocket.Configuration;
 
 namespace StatePocket.Hosting;
 
 internal static class McpRegistration
 {
-    internal const string ServerInstructions = """
-                                               This server provides persistent local JSON key-value state for agents and tools.
-
-                                               Use it for durable namespaced JSON state backed by SQLite.
-
-                                               It fits best for small durable state such as checkpoints, caches, preferences, task state, and structured memory that should survive across turns.
-                                               """;
+    internal static readonly string ServerInstructions = McpPublishedDocumentation.AppendDocumentationLink(
+        McpPublishedDocumentation.AppendAboutDocumentationLink(
+            "StatePocket provides durable namespaced JSON state backed by SQLite for agents and tools."
+        ),
+        RuntimeInfoResource.InfoUri
+    );
     private static readonly Dictionary<string, McpToolRegistration> ToolRegistrations = McpTools.All.ToDictionary(
         static tool => tool.Name,
         static tool => tool,
@@ -153,16 +153,18 @@ internal static class McpRegistration
         }
     }
 
-    public static void AddPublishedDocumentation(
-        IMcpServerBuilder mcpServerBuilder,
-        IReadOnlyCollection<string> enabledTools
-    )
+    public static void AddPublishedDocumentation(IMcpServerBuilder mcpServerBuilder, ResolvedOptions resolvedOptions)
     {
         ArgumentNullException.ThrowIfNull(mcpServerBuilder);
-        ArgumentNullException.ThrowIfNull(enabledTools);
-        var catalog = McpPublishedDocumentation.CreateCatalog(enabledTools);
+        ArgumentNullException.ThrowIfNull(resolvedOptions);
+        var catalog = McpPublishedDocumentation.CreateCatalog(
+            resolvedOptions.EnabledTools,
+            [RuntimeInfoResource.CreateLinkTarget()]
+        );
         mcpServerBuilder.Services.AddSingleton(catalog);
-        mcpServerBuilder.WithResources(McpPublishedDocumentation.CreateResources(catalog));
+        mcpServerBuilder.WithResources(
+            [.. McpPublishedDocumentation.CreateResources(catalog), RuntimeInfoResource.CreateResource(resolvedOptions)]
+        );
     }
 
     private static IEnumerable<McpToolRegistration> GetEnabledTools(IReadOnlyCollection<string> enabledTools)

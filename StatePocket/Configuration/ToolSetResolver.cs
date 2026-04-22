@@ -6,9 +6,13 @@ internal static class ToolSetResolver
     {
         ArgumentNullException.ThrowIfNull(commandLineOptions);
         var databasePath = commandLineOptions.DatabasePath;
-        return !string.IsNullOrWhiteSpace(databasePath)
-          ? new ResolvedOptions(databasePath.Trim(), ResolveEnabledTools(commandLineOptions))
-          : throw new ConfigurationException("Database path is required. Provide --db-path.");
+        if (string.IsNullOrWhiteSpace(databasePath))
+        {
+            throw new ConfigurationException("Database path is required. Provide --db-path.");
+        }
+        var normalizedDatabasePath = databasePath.Trim();
+        SqliteDataSource.ValidateSupported(normalizedDatabasePath);
+        return new ResolvedOptions(normalizedDatabasePath, ResolveEnabledTools(commandLineOptions));
     }
 
     private static IReadOnlyCollection<string> ResolveEnabledTools(CommandLineOptions commandLineOptions)

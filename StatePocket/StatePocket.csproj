@@ -13,6 +13,7 @@
         <PublishTrimmed>true</PublishTrimmed>
         <PackageId>StatePocket</PackageId>
         <ToolCommandName>statepocket</ToolCommandName>
+        <ResourceUriScheme>statepocket</ResourceUriScheme>
         <Title>State Pocket</Title>
         <Description>Persistent local JSON state for agents and tools, exposed through MCP and backed by SQLite.</Description>
         <PackageTags>mcp;model-context-protocol;agent;sqlite;json;kv-store;tool</PackageTags>
@@ -25,6 +26,7 @@
         <AssemblyMetadata Include="PackageId" Value="$(PackageId)" />
         <AssemblyMetadata Include="PackageProjectUrl" Value="$(PackageProjectUrl)" />
         <AssemblyMetadata Include="ToolCommandName" Value="$(ToolCommandName)" />
+        <AssemblyMetadata Include="ResourceUriScheme" Value="$(ResourceUriScheme)" />
         <ProjectReference Include="..\StatePocket.Json.Path\StatePocket.Json.Path.csproj" />
         <ProjectReference Include="..\StatePocket.Json.Patch\StatePocket.Json.Patch.csproj" />
         <ProjectReference Include="..\StatePocket.Json.Pointer\StatePocket.Json.Pointer.csproj" />

@@ -13,6 +13,7 @@ namespace StatePocket.Errors;
 [JsonSerializable(typeof(InvalidInputToolError))]
 [JsonSerializable(typeof(InvalidArgumentToolError))]
 [JsonSerializable(typeof(InvalidJsonToolError))]
+[JsonSerializable(typeof(InvalidPointerToolError))]
 [JsonSerializable(typeof(NotFoundToolError))]
 [JsonSerializable(typeof(BusyToolError))]
 [JsonSerializable(typeof(AlreadyExistsToolError))]

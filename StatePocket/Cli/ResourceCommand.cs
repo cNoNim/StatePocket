@@ -27,7 +27,7 @@ internal static class ResourceCommand
                 Console.Out,
                 Console.Error,
                 static () =>
-                    McpPublishedDocumentation.CreateCatalog([.. McpTools.All.Select(static tool => tool.Name)]),
+                    McpPublishedDocumentation.CreateCatalog([.. McpTools.All.Select(static tool => tool.Name)], []),
                 cancellationToken
             )
         );

@@ -6,6 +6,7 @@ namespace StatePocket.Errors;
 [JsonDerivedType(typeof(InvalidInputToolError), "invalid_input")]
 [JsonDerivedType(typeof(InvalidArgumentToolError), "invalid_argument")]
 [JsonDerivedType(typeof(InvalidJsonToolError), "invalid_json")]
+[JsonDerivedType(typeof(InvalidPointerToolError), "invalid_pointer")]
 [JsonDerivedType(typeof(NotFoundToolError), "not_found")]
 [JsonDerivedType(typeof(BusyToolError), "busy")]
 [JsonDerivedType(typeof(AlreadyExistsToolError), "already_exists")]

@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text;
+using System.Text.Json.Nodes;
 using ModelContextProtocol.Server;
 using StatePocket.Configuration;
 using Tomlyn;
@@ -8,17 +9,21 @@ namespace StatePocket.Hosting;
 
 internal static class McpPublishedDocumentation
 {
-    private const string AboutDocumentationUri = "statepocket://docs/about";
     private const string ResourcePrefix = "Docs/";
+    private static readonly string AboutDocumentationUri = ResourceUri.Format("docs/about");
     private static readonly DocumentationGrouping[] Groupings =
     [
         new("concepts", "Core concepts"), new("workflows", "Suggested workflows")
     ];
     private static readonly Lazy<List<PublishedDocumentTemplate>> DocumentTemplates = new(LoadDocuments);
 
-    internal static PublishedDocumentationCatalog CreateCatalog(IReadOnlyCollection<string> enabledTools)
+    internal static PublishedDocumentationCatalog CreateCatalog(
+        IReadOnlyCollection<string> enabledTools,
+        IReadOnlyCollection<PublishedLinkTarget> additionalLinkTargets
+    )
     {
         ArgumentNullException.ThrowIfNull(enabledTools);
+        ArgumentNullException.ThrowIfNull(additionalLinkTargets);
         var availableTemplates = DocumentTemplates.Value.Where(document =>
                                                        (document.ToolName is null
                                                      || enabledTools.Contains(
@@ -30,11 +35,7 @@ internal static class McpPublishedDocumentation
                                                        )
                                                    )
                                                   .ToArray();
-        var availableDocumentsByUri = availableTemplates.ToDictionary(
-            static document => document.Uri,
-            static document => document,
-            StringComparer.Ordinal
-        );
+        var availableLinkTargetsByUri = CreateAvailableLinkTargets(availableTemplates, additionalLinkTargets);
         List<PublishedDocument> documents =
         [
             .. availableTemplates.Select(document => new PublishedDocument(
@@ -44,7 +45,8 @@ internal static class McpPublishedDocumentation
                     document.Description,
                     document.MimeType,
                     document.ToolName,
-                    RenderContent(document, availableDocumentsByUri)
+                    [.. document.Tags],
+                    RenderContent(document, availableLinkTargetsByUri)
                 )
             )
         ];
@@ -71,17 +73,23 @@ internal static class McpPublishedDocumentation
         {
             return;
         }
-        var documentationSentence = $"See also: {documentationUri}";
         var description = tool.ProtocolTool.Description;
-        if (description is null)
-        {
-            tool.ProtocolTool.Description = documentationSentence;
-            return;
-        }
-        if (!description.Contains(documentationUri, StringComparison.Ordinal))
-        {
-            tool.ProtocolTool.Description = $"{description}\n{documentationSentence}";
-        }
+        tool.ProtocolTool.Description = AppendDocumentationLink(description, documentationUri);
+    }
+
+    internal static string AppendAboutDocumentationLink(string description)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+        return AppendDocumentationLink(description, AboutDocumentationUri);
+    }
+
+    internal static string AppendDocumentationLink(string? description, string documentationUri)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(documentationUri);
+        var documentationSentence = $"See also: {documentationUri}";
+        return string.IsNullOrWhiteSpace(description) ? documentationSentence :
+            description.Contains(documentationUri, StringComparison.Ordinal) ? description :
+            $"{description}\n{documentationSentence}";
     }
 
     private static McpServerResource CreateResource(PublishedDocument document)
@@ -94,63 +102,68 @@ internal static class McpPublishedDocumentation
                 Title = document.Title,
                 Description = document.Description,
                 UriTemplate = document.Uri,
-                MimeType = document.MimeType
+                MimeType = document.MimeType,
+                Meta = CreateDocumentMeta(document.Tags)
             }
         );
     }
 
+    private static JsonObject? CreateDocumentMeta(IReadOnlyList<string> tags)
+    {
+        if (tags.Count == 0)
+        {
+            return null;
+        }
+        JsonArray tagArray = [];
+        foreach (var tag in tags)
+        {
+            tagArray.Add((JsonNode?)tag);
+        }
+        return new JsonObject
+        {
+            ["tags"] = tagArray
+        };
+    }
+
     private static string RenderContent(
         PublishedDocumentTemplate document,
-        IReadOnlyDictionary<string, PublishedDocumentTemplate> availableDocumentsByUri
+        IReadOnlyDictionary<string, PublishedLinkTarget> availableLinkTargetsByUri
     )
     {
         StringBuilder builder = new(document.Body.TrimEnd());
-        if (string.Equals(document.Uri, AboutDocumentationUri, StringComparison.Ordinal))
-        {
-            AppendGroupedSections(builder, document.LinkSections, availableDocumentsByUri);
-            return builder.ToString();
-        }
-        foreach (var section in document.LinkSections)
-        {
-            var availableLinks = GetAvailableLinks(section, availableDocumentsByUri);
-            if (availableLinks.Length == 0)
-            {
-                continue;
-            }
-            AppendSection(builder, section.Title, availableLinks);
-        }
+        AppendGroupedSections(builder, document.Links, availableLinkTargetsByUri);
         return builder.ToString();
     }
 
     private static AvailableLink[] GetAvailableLinks(
-        PublishedDocumentLinkSection section,
-        IReadOnlyDictionary<string, PublishedDocumentTemplate> availableDocumentsByUri
+        IReadOnlyList<PublishedDocumentLink> links,
+        IReadOnlyDictionary<string, PublishedLinkTarget> availableLinkTargetsByUri
     )
     {
         return
         [
-            .. section.Links.Select(link =>
-                           {
-                               if (!availableDocumentsByUri.TryGetValue(link.Uri, out var target))
-                               {
-                                   return null;
-                               }
-                               return new AvailableLink(
-                                   string.IsNullOrWhiteSpace(target.Title) ? link.Label : target.Title,
-                                   link.Uri,
-                                   target.Tags
-                               );
-                           }
-                       )
-                      .Where(static link => link is not null)
-                      .Select(static link => link!)
+            .. links.Select(link =>
+                         {
+                             if (!availableLinkTargetsByUri.TryGetValue(link.Uri, out var target))
+                             {
+                                 return null;
+                             }
+                             return new AvailableLink(
+                                 string.IsNullOrWhiteSpace(target.Title) ? link.Label : target.Title,
+                                 link.Uri,
+                                 target.GroupingTag
+                             );
+                         }
+                     )
+                    .Where(static link => link is not null)
+                    .Select(static link => link!)
         ];
     }
 
     private static void AppendGroupedSections(
         StringBuilder builder,
-        IReadOnlyList<PublishedDocumentLinkSection> linkSections,
-        IReadOnlyDictionary<string, PublishedDocumentTemplate> availableDocumentsByUri
+        IReadOnlyList<PublishedDocumentLink> links,
+        IReadOnlyDictionary<string, PublishedLinkTarget> availableLinkTargetsByUri
     )
     {
         List<AvailableLink> otherLinks = [];
@@ -159,19 +172,15 @@ internal static class McpPublishedDocumentation
             static _ => new List<AvailableLink>(),
             StringComparer.Ordinal
         );
-        foreach (var section in linkSections)
+        foreach (var link in GetAvailableLinks(links, availableLinkTargetsByUri))
         {
-            foreach (var link in GetAvailableLinks(section, availableDocumentsByUri))
+            if (link.GroupingTag is null)
             {
-                var grouping = FindGrouping(link.Tags);
-                if (grouping is null)
-                {
-                    otherLinks.Add(link);
-                    continue;
-                }
-                groupedLinks[grouping.Tag]
-                   .Add(link);
+                otherLinks.Add(link);
+                continue;
             }
+            groupedLinks[link.GroupingTag]
+               .Add(link);
         }
         foreach (var grouping in Groupings)
         {
@@ -183,17 +192,38 @@ internal static class McpPublishedDocumentation
         }
         if (otherLinks.Count > 0)
         {
-            AppendSection(builder, "Related docs", [.. otherLinks]);
+            AppendSection(builder, "Related resources", [.. otherLinks]);
         }
     }
 
-    private static DocumentationGrouping? FindGrouping(IReadOnlyList<string> tags)
+    private static Dictionary<string, PublishedLinkTarget> CreateAvailableLinkTargets(
+        IReadOnlyCollection<PublishedDocumentTemplate> documents,
+        IReadOnlyCollection<PublishedLinkTarget> additionalLinkTargets
+    )
     {
+        var linkTargets = documents.ToDictionary(
+            static document => document.Uri,
+            static document => new PublishedLinkTarget(document.Uri, document.Title, document.GroupingTag),
+            StringComparer.Ordinal
+        );
+        foreach (var target in additionalLinkTargets)
+        {
+            linkTargets[target.Uri] = target;
+        }
+        return linkTargets;
+    }
+
+    private static string? FindGroupingTag(List<string> tags)
+    {
+        if (tags.Count == 0)
+        {
+            return null;
+        }
         foreach (var grouping in Groupings)
         {
             if (tags.Contains(grouping.Tag, StringComparer.Ordinal))
             {
-                return grouping;
+                return grouping.Tag;
             }
         }
         return null;
@@ -253,32 +283,22 @@ internal static class McpPublishedDocumentation
             metadata.ToolName,
             ValidateToolNames(metadata.RequiresTools, "requires_tools", relativePath),
             [.. metadata.Tags],
-            ParseLinkSections(metadata),
+            FindGroupingTag(metadata.Tags),
+            ParseLinks(metadata),
             body
         );
     }
 
-    private static List<PublishedDocumentLinkSection> ParseLinkSections(DocumentationFrontMatter metadata)
+    private static List<PublishedDocumentLink> ParseLinks(DocumentationFrontMatter metadata)
     {
-        return [.. CreateLinkSection("Related docs", metadata.Related)];
-    }
-
-    private static IEnumerable<PublishedDocumentLinkSection> CreateLinkSection(string title, List<string> links)
-    {
-        if (links.Count == 0)
-        {
-            yield break;
-        }
-        yield return new PublishedDocumentLinkSection(
-            title,
-            [
-                .. links.Select(link => new PublishedDocumentLink(
-                        NormalizeDocumentationUri(GetRequiredValue(link, "uri", title)),
-                        NormalizeDocumentationUri(GetRequiredValue(link, "uri", title))
-                    )
+        return
+        [
+            .. metadata.Related.Select(static link => new PublishedDocumentLink(
+                    NormalizeDocumentationUri(GetRequiredValue(link, "uri", "related")),
+                    NormalizeDocumentationUri(GetRequiredValue(link, "uri", "related"))
                 )
-            ]
-        );
+            )
+        ];
     }
 
     private static (DocumentationFrontMatter Metadata, string Body) ParseFrontMatter(
@@ -335,9 +355,7 @@ internal static class McpPublishedDocumentation
     private static string NormalizeDocumentationUri(string value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
-        return value.StartsWith("statepocket://", StringComparison.Ordinal)
-          ? value
-          : $"statepocket://{value.TrimStart('/')}";
+        return ResourceUri.HasScheme(value) ? value : ResourceUri.Format(value);
     }
 
     private static string ReadEmbeddedText(Assembly assembly, string resourceName)
@@ -398,6 +416,7 @@ internal static class McpPublishedDocumentation
         string? Description,
         string MimeType,
         string? ToolName,
+        IReadOnlyList<string> Tags,
         string Content
     );
 
@@ -410,15 +429,16 @@ internal static class McpPublishedDocumentation
         string? ToolName,
         IReadOnlyList<string> RequiresTools,
         IReadOnlyList<string> Tags,
-        IReadOnlyList<PublishedDocumentLinkSection> LinkSections,
+        string? GroupingTag,
+        IReadOnlyList<PublishedDocumentLink> Links,
         string Body
     );
-
-    private sealed record PublishedDocumentLinkSection(string Title, IReadOnlyList<PublishedDocumentLink> Links);
 
     private sealed record PublishedDocumentLink(string Label, string Uri);
 
     private sealed record DocumentationGrouping(string Tag, string Title);
 
-    private sealed record AvailableLink(string Label, string Uri, IReadOnlyList<string> Tags);
+    internal sealed record PublishedLinkTarget(string Uri, string Title, string? GroupingTag);
+
+    private sealed record AvailableLink(string Label, string Uri, string? GroupingTag);
 }

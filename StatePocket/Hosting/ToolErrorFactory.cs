@@ -15,6 +15,7 @@ internal static class ToolErrorFactory
         return exception switch
         {
             ToolErrorException toolError => toolError.ToPayload(),
+            JsonException jsonException when IsJsonPointerError(jsonException) => CreateInvalidPointer(jsonException),
             JsonException jsonException => CreateInvalidJson(jsonException),
             ArgumentException argumentException => CreateInvalidArgument(argumentException),
             JsonPathException jsonPathException => CreateInvalidQuery(jsonPathException),
@@ -41,6 +42,16 @@ internal static class ToolErrorFactory
             Message = exception.Message,
             Retryable = false,
             Path = exception.Path
+        };
+    }
+
+    private static InvalidPointerToolError CreateInvalidPointer(JsonException exception)
+    {
+        return new InvalidPointerToolError
+        {
+            Message = exception.Message,
+            Retryable = false,
+            Argument = "path"
         };
     }
 
@@ -80,5 +91,10 @@ internal static class ToolErrorFactory
             Message = "An internal error occurred.",
             Retryable = false
         };
+    }
+
+    private static bool IsJsonPointerError(JsonException exception)
+    {
+        return exception.Message.Contains("JSON Pointer", StringComparison.Ordinal);
     }
 }

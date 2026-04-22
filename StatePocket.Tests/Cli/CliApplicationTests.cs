@@ -76,7 +76,7 @@ public sealed class CliApplicationTests
             false,
             outputWriter,
             errorWriter,
-            static () => McpPublishedDocumentation.CreateCatalog([GetValueTool.ToolName]),
+            static () => McpPublishedDocumentation.CreateCatalog([GetValueTool.ToolName], []),
             CancellationToken.None
         );
         Assert.Equal(1, exitCode);
@@ -106,7 +106,7 @@ public sealed class CliApplicationTests
             "docs/nope",
             outputWriter,
             errorWriter,
-            static () => McpPublishedDocumentation.CreateCatalog([GetValueTool.ToolName]),
+            static () => McpPublishedDocumentation.CreateCatalog([GetValueTool.ToolName], []),
             CancellationToken.None
         );
         Assert.Equal(1, exitCode);

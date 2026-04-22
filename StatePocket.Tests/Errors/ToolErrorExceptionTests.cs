@@ -109,6 +109,14 @@ public sealed class ToolErrorExceptionTests
             new ToolAlreadyExistsException("codex", "claimed", 1),
             new ToolInvalidArgumentException("format must be 'text' or 'json'.", "format"),
             new ToolInvalidJsonException("value must be valid JSON when format is 'json'."),
+            new ToolErrorExceptionStub(
+                new InvalidPointerToolError
+                {
+                    Message = "Invalid JSON Pointer path 'nested/value'.",
+                    Retryable = false,
+                    Argument = "path"
+                }
+            ),
             new ToolInvalidQueryException("equals requires query."),
             new ToolInvalidPatchException("Patch document must be a JSON array."),
             new ToolOperationFailedException("Operation failed."),
@@ -125,6 +133,7 @@ public sealed class ToolErrorExceptionTests
                 "already_exists",
                 "invalid_argument",
                 "invalid_json",
+                "invalid_pointer",
                 "invalid_query",
                 "invalid_patch",
                 "operation_failed",
@@ -132,5 +141,13 @@ public sealed class ToolErrorExceptionTests
             ],
             actualKinds
         );
+    }
+
+    private sealed class ToolErrorExceptionStub(ToolError payload) : ToolErrorException(payload.Message)
+    {
+        public override ToolError ToPayload()
+        {
+            return payload;
+        }
     }
 }

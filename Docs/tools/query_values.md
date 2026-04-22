@@ -21,3 +21,14 @@ Good fits:
 - find values by tag or status
 - list records whose payload matches a condition
 - scan keys with wildcard patterns and project one nested field
+
+Path guide:
+
+- `query` uses JSONPath and decides which stored values match
+- `path` uses JSON Pointer and projects part of each matched value
+
+Ordering and pagination:
+
+- candidate keys are scanned in ascending lexicographic key order
+- `cursor` is exclusive; pass the last matched key from the previous page to continue after it
+- `nextCursor` is the last matched key returned in the current page when more results remain
