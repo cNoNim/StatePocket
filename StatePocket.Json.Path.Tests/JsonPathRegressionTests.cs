@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 
 namespace StatePocket.Json.Path.Tests;
@@ -157,9 +158,49 @@ public sealed class JsonPathRegressionTests
         Assert.Equal("$['\\u0000']", matches[0].NormalizedPath);
     }
 
+    [Fact]
+    public void Evaluate_HandlesDeepDescendantTraversalWithoutRecursiveEnumeration()
+    {
+        const int depth = 2048;
+        var query = new JsonPath("$..value");
+        var document = ParseJson(CreateDeepObjectJson(depth));
+        var matches = query.Evaluate(document);
+        Assert.Single(matches);
+        Assert.Equal(
+            "1",
+            matches[0]
+               .Value.GetRawText()
+        );
+        Assert.Equal(
+            "$" + string.Concat(Enumerable.Repeat("['child']", depth)) + "['value']",
+            matches[0].NormalizedPath
+        );
+    }
+
     private static JsonElement ParseJson(string json)
     {
-        using var document = JsonDocument.Parse(json);
+        using var document = JsonDocument.Parse(
+            json,
+            new JsonDocumentOptions
+            {
+                MaxDepth = 4096
+            }
+        );
         return document.RootElement.Clone();
+    }
+
+    private static string CreateDeepObjectJson(int depth)
+    {
+        StringBuilder json = new();
+        for (var index = 0; index < depth; index++)
+        {
+            json.Append("{\"child\":");
+        }
+        json.Append("{\"value\":1}");
+        for (var index = 0; index < depth; index++)
+        {
+            json.Append('}');
+        }
+        return json.ToString();
     }
 }

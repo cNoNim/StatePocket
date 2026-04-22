@@ -139,37 +139,71 @@ public sealed partial class JsonPath
 
         private static IEnumerable<PathValue> EnumerateSelfAndDescendants(PathValue current)
         {
-            yield return current;
-            switch (current.Value.ValueKind)
+            Stack<DescendantFrame> pending = new();
+            pending.Push(new DescendantFrame(current));
+            while (pending.Count != 0)
             {
-                case JsonValueKind.Object:
-                    foreach (var property in current.Value.EnumerateObject())
+                var frame = pending.Peek();
+                if (!frame.Yielded)
+                {
+                    frame.Yielded = true;
+                    yield return frame.Node;
+                    continue;
+                }
+                switch (frame.Kind)
+                {
+                    case DescendantFrameKind.Object when frame.ObjectEnumerator.MoveNext():
                     {
-                        foreach (var descendant in EnumerateSelfAndDescendants(
-                                     new PathValue(
-                                         property.Value,
-                                         $"{current.NormalizedPath}{NormalizeName(property.Name)}"
-                                     )
-                                 ))
-                        {
-                            yield return descendant;
-                        }
+                        var property = frame.ObjectEnumerator.Current;
+                        pending.Push(
+                            new DescendantFrame(
+                                new PathValue(
+                                    property.Value,
+                                    $"{frame.Node.NormalizedPath}{NormalizeName(property.Name)}"
+                                )
+                            )
+                        );
                     }
-                    yield break;
-                case JsonValueKind.Array:
-                    for (var index = 0; index < current.Value.GetArrayLength(); index++)
+                        break;
+                    case DescendantFrameKind.Array when frame.NextArrayIndex < frame.Node.Value.GetArrayLength():
                     {
-                        foreach (var descendant in EnumerateSelfAndDescendants(
-                                     new PathValue(current.Value[index], $"{current.NormalizedPath}[{index}]")
-                                 ))
-                        {
-                            yield return descendant;
-                        }
+                        var index = frame.NextArrayIndex++;
+                        pending.Push(
+                            new DescendantFrame(
+                                new PathValue(frame.Node.Value[index], $"{frame.Node.NormalizedPath}[{index}]")
+                            )
+                        );
                     }
-                    yield break;
-                default:
-                    yield break;
+                        break;
+                    case DescendantFrameKind.Object:
+                    case DescendantFrameKind.Array:
+                    case DescendantFrameKind.Leaf:
+                        pending.Pop();
+                        break;
+                }
             }
+        }
+
+        private sealed class DescendantFrame(PathValue node)
+        {
+            public JsonElement.ObjectEnumerator ObjectEnumerator =
+                node.Value.ValueKind == JsonValueKind.Object ? node.Value.EnumerateObject() : default;
+            public DescendantFrameKind Kind { get; } = node.Value.ValueKind switch
+            {
+                JsonValueKind.Object => DescendantFrameKind.Object,
+                JsonValueKind.Array => DescendantFrameKind.Array,
+                _ => DescendantFrameKind.Leaf
+            };
+            public PathValue Node { get; } = node;
+            public bool Yielded { get; set; }
+            public int NextArrayIndex { get; set; }
+        }
+
+        private enum DescendantFrameKind
+        {
+            Object,
+            Array,
+            Leaf
         }
     }
 }
