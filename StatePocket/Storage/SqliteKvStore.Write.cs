@@ -457,15 +457,19 @@ internal sealed partial class SqliteKvStore
                 cancellationToken
             )
            .ConfigureAwait(false);
-        return !updated
-          ? null
-          : new KvValue
-            {
-                Value = ParseJson(updatedRawJson),
-                ExpiresAt = currentEntry.Value.ExpiresAt,
-                UpdatedAt = updatedAt,
-                Revision = nextRevision
-            };
+        if (!updated)
+        {
+            throw new InvalidOperationException(
+                "PersistUpdatedValueAsync returned no rows after loading a live value in the same write transaction."
+            );
+        }
+        return new KvValue
+        {
+            Value = ParseJson(updatedRawJson),
+            ExpiresAt = currentEntry.Value.ExpiresAt,
+            UpdatedAt = updatedAt,
+            Revision = nextRevision
+        };
     }
 
     private static async Task<(string RawJson, string? ExpiresAt, string UpdatedAt, long Revision)?>
