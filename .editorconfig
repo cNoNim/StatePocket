@@ -467,7 +467,9 @@ dotnet_diagnostic.IDE0290.severity = warning
 dotnet_diagnostic.IDE1006.severity = warning
 dotnet_diagnostic.MA0007.severity = none
 dotnet_diagnostic.MA0058.severity = warning
+dotnet_diagnostic.MA0159.severity = warning
 dotnet_diagnostic.MA0188.severity = warning
+dotnet_diagnostic.MA0190.severity = warning
 
 # Inspection severities
 csharp_preferred_modifier_order = public, private, protected, internal, file, new, static, abstract, virtual, sealed, readonly, override, extern, unsafe, volatile, async, required: warning

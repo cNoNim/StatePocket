@@ -21,3 +21,11 @@ Ordering and pagination:
 - results are returned in ascending lexicographic key order
 - `cursor` is exclusive; pass the last key from the previous page to continue after it
 - `nextCursor` is the last key returned in the current page when more results remain
+
+Pattern syntax:
+
+- patterns use SQLite `GLOB` matching
+- `*` matches any sequence of characters
+- `?` matches exactly one character
+- `[abc]` matches one character from a set or range like `[a-z]`
+- there is no special `**` recursive form

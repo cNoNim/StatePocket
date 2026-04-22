@@ -169,7 +169,7 @@ internal static class McpRegistration
 
     private static IEnumerable<McpToolRegistration> GetEnabledTools(IReadOnlyCollection<string> enabledTools)
     {
-        foreach (var toolName in enabledTools.OrderBy(static tool => tool, StringComparer.Ordinal))
+        foreach (var toolName in enabledTools.Order(StringComparer.Ordinal))
         {
             if (FindTool(toolName) is
                 {} tool)

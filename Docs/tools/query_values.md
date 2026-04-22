@@ -32,3 +32,5 @@ Ordering and pagination:
 - candidate keys are scanned in ascending lexicographic key order
 - `cursor` is exclusive; pass the last matched key from the previous page to continue after it
 - `nextCursor` is the last matched key returned in the current page when more results remain
+- a follow-up page may contain zero matches even when `nextCursor` was present on the previous page, because matching happens after scanning candidate keys
+- keep paging until `nextCursor` becomes `null`; an empty `values` object by itself does not guarantee the scan is finished
