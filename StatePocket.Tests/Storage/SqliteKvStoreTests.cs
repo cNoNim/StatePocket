@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Time.Testing;
 using StatePocket.Configuration;
-using StatePocket.Errors;
+using StatePocket.Exceptions;
 using StatePocket.Json.Patch;
 using StatePocket.Storage;
 

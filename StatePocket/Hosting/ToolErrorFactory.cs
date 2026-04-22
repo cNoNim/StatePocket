@@ -1,7 +1,7 @@
 using System.Text.Json;
 using ModelContextProtocol;
-using StatePocket.Contracts;
 using StatePocket.Errors;
+using StatePocket.Exceptions;
 using StatePocket.Json.Patch;
 using StatePocket.Json.Path;
 

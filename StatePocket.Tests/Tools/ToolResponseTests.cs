@@ -8,10 +8,11 @@ using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using StatePocket.Configuration;
 using StatePocket.Contracts;
-using StatePocket.Errors;
+using StatePocket.Exceptions;
 using StatePocket.Hosting;
 using StatePocket.Json.Patch;
 using StatePocket.Json.Pointer;
+using StatePocket.Serialization;
 using StatePocket.Storage;
 using StatePocket.Tools;
 

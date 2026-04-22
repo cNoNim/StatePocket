@@ -1,5 +1,5 @@
-using StatePocket.Contracts;
 using StatePocket.Errors;
+using StatePocket.Exceptions;
 
 namespace StatePocket.Tests.Errors;
 

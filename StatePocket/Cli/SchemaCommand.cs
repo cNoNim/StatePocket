@@ -3,9 +3,9 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Server;
 using StatePocket.Configuration;
-using StatePocket.Contracts;
 using StatePocket.Hosting;
 using StatePocket.Json.Patch;
+using StatePocket.Serialization;
 using StatePocket.Storage;
 
 namespace StatePocket.Cli;

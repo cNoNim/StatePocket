@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
-using StatePocket.Errors;
+using StatePocket.Exceptions;
 using StatePocket.Json.Patch;
 
 namespace StatePocket.Storage;

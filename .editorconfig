@@ -463,6 +463,7 @@ xmldoc_linebreak_before_elements = summary, remarks, example, returns, param, ty
 xml_linebreak_before_elements =
 
 # Dotnet Diagnostics
+dotnet_diagnostic.IDE0290.severity = warning
 dotnet_diagnostic.IDE1006.severity = warning
 dotnet_diagnostic.MA0007.severity = none
 dotnet_diagnostic.MA0058.severity = warning

@@ -2,15 +2,9 @@ using System.Collections.ObjectModel;
 
 namespace StatePocket.Configuration;
 
-internal sealed class ResolvedOptions
+internal sealed class ResolvedOptions(string databasePath, IReadOnlyCollection<string> enabledTools)
 {
-    public ResolvedOptions(string databasePath, IReadOnlyCollection<string> enabledTools)
-    {
-        DatabasePath = databasePath;
-        EnabledTools =
-            new ReadOnlyCollection<string>([.. enabledTools.OrderBy(static tool => tool, StringComparer.Ordinal)]);
-    }
-
-    public string DatabasePath { get; }
-    public IReadOnlyCollection<string> EnabledTools { get; }
+    public string DatabasePath { get; } = databasePath;
+    public IReadOnlyCollection<string> EnabledTools { get; } =
+        new ReadOnlyCollection<string>([.. enabledTools.Order(StringComparer.Ordinal)]);
 }

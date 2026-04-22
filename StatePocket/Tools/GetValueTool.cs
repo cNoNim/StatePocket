@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using ModelContextProtocol.Server;
 using StatePocket.Contracts;
-using StatePocket.Errors;
+using StatePocket.Exceptions;
 using StatePocket.Json.Pointer;
 using StatePocket.Storage;
 

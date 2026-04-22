@@ -1,5 +1,5 @@
 using System.Text.Json;
-using StatePocket.Errors;
+using StatePocket.Exceptions;
 
 namespace StatePocket.Hosting;
 

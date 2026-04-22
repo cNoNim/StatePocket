@@ -4,9 +4,9 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
-using StatePocket.Contracts;
 using StatePocket.Json.Patch;
 using StatePocket.Json.Pointer;
+using StatePocket.Serialization;
 
 namespace StatePocket.Hosting;
 

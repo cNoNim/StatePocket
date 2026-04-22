@@ -1,6 +1,6 @@
 using System.Text.Json;
 using ModelContextProtocol.Protocol;
-using StatePocket.Contracts;
+using StatePocket.Errors;
 
 namespace StatePocket.Hosting;
 

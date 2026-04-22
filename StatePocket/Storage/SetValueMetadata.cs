@@ -1,6 +1,6 @@
 namespace StatePocket.Storage;
 
-internal sealed class SetValueMetadata
+internal sealed record SetValueMetadata
 {
     public string? ExpiresAt { get; init; }
     public required string UpdatedAt { get; init; }

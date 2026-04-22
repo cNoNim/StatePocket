@@ -3,7 +3,7 @@ using System.Text.Json;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
-using StatePocket.Errors;
+using StatePocket.Exceptions;
 using StatePocket.Hosting;
 
 namespace StatePocket.Tests.Hosting;

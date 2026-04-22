@@ -1,4 +1,4 @@
-using StatePocket.Errors;
+using StatePocket.Exceptions;
 
 namespace StatePocket.Storage;
 
