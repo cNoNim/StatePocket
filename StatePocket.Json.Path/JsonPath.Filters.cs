@@ -343,7 +343,7 @@ public sealed partial class JsonPath
             }
             catch (RegexMatchTimeoutException)
             {
-                throw new JsonPathException($"Invalid JSONPath selector '{selector}'.");
+                throw new JsonPathException($"Regex evaluation timed out for JSONPath selector '{selector}'.");
             }
         }
     }
