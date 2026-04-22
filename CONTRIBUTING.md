@@ -17,7 +17,7 @@ Expected result: `jb cleanupcode` leaves no diff, and `tmp/inspectcode.sarif` co
 
 `StatePocket` uses Semantic Versioning.
 
-Until `1.0.0`, releases do not use prerelease versions.
+Until `1.0.0`, the normal release flow does not use prerelease versions.
 
 The release version is updated manually in `VersionPrefix` in `Directory.Build.props`.
 
@@ -29,3 +29,7 @@ Current release flow:
 2. Commit the version change.
 3. Push a tag in the form `vX.Y.Z`.
 4. Let the `Publish` GitHub Actions workflow publish the package to `nuget.org`.
+
+Stable releases are published only from tags.
+
+`workflow_dispatch` is not part of the normal stable release flow. It remains available only for exceptional manual publishes such as prerelease packages.
