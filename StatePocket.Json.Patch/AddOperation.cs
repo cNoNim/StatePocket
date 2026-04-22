@@ -17,22 +17,11 @@ public sealed class AddOperation : ValueOperation
 
     internal override JsonNode? ApplyTo(JsonNode? document)
     {
-        if (Path.IsRoot)
-        {
-            return GetValueNode();
-        }
-        var parent = GetParentNode(document, Path);
-        var segment = GetRequiredTargetSegment(Path);
-        switch (parent)
-        {
-            case JsonObject jsonObject:
-                jsonObject[segment] = GetValueNode();
-                return document;
-            case JsonArray jsonArray:
-                jsonArray.Insert(ParseArrayInsertIndex(jsonArray, segment), GetValueNode());
-                return document;
-            default:
-                throw new JsonPatchException($"Path '{Path}' does not target an object or array.");
-        }
+        return AddValue(
+            document,
+            Path,
+            GetValueNode(),
+            OpName
+        );
     }
 }

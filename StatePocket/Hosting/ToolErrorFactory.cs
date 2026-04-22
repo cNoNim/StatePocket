@@ -71,7 +71,10 @@ internal static class ToolErrorFactory
         {
             Message = exception.Message,
             Retryable = false,
-            Argument = "patch"
+            Argument = "patch",
+            OperationIndex = exception.OperationIndex,
+            Operation = exception.Operation,
+            TargetPath = exception.TargetPath
         };
     }
 

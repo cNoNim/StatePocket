@@ -1222,7 +1222,23 @@ public sealed class SqliteKvStoreTests : IDisposable
             );
         }
 
-        await Assert.ThrowsAsync<ToolInvalidPatchException>(ActionAsync);
+        var exception = await Assert.ThrowsAsync<ToolInvalidPatchException>(ActionAsync);
+        var structuredContent = exception.ToStructuredContent();
+        Assert.Equal(
+            1,
+            structuredContent.GetProperty("operationIndex")
+                             .GetInt32()
+        );
+        Assert.Equal(
+            "test",
+            structuredContent.GetProperty("operation")
+                             .GetString()
+        );
+        Assert.Equal(
+            "/name",
+            structuredContent.GetProperty("targetPath")
+                             .GetString()
+        );
         var storedEntry = await _store.GetValueAsync("default", "profile", CancellationToken.None);
         Assert.NotNull(storedEntry);
         Assert.Equal("{\"name\":\"old\",\"version\":1}", storedEntry.Value.GetRawText());

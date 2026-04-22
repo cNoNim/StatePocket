@@ -445,7 +445,7 @@ internal sealed partial class SqliteKvStore
         }
         catch (JsonPatchException exception)
         {
-            throw new ToolInvalidPatchException(exception.Message, innerException: exception);
+            throw CreateInvalidPatchException(exception);
         }
         var updatedRawJson = updatedValue?.ToJsonString() ?? "null";
         var nextRevision = await AllocateNextRevisionAsync(
@@ -480,6 +480,17 @@ internal sealed partial class SqliteKvStore
             UpdatedAt = updatedAt,
             Revision = nextRevision
         };
+    }
+
+    private static ToolInvalidPatchException CreateInvalidPatchException(JsonPatchException exception)
+    {
+        return new ToolInvalidPatchException(
+            exception.Message,
+            operationIndex: exception.OperationIndex,
+            operation: exception.Operation,
+            targetPath: exception.TargetPath,
+            innerException: exception
+        );
     }
 
     private static async Task<(string RawJson, string? ExpiresAt, string UpdatedAt, long Revision)?>

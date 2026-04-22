@@ -98,6 +98,42 @@ public sealed class ToolErrorExceptionTests
         );
         Assert.False(structuredContent.TryGetProperty("lineNumber", out _));
         Assert.False(structuredContent.TryGetProperty("bytePositionInLine", out _));
+        Assert.False(structuredContent.TryGetProperty("operationIndex", out _));
+        Assert.False(structuredContent.TryGetProperty("operation", out _));
+        Assert.False(structuredContent.TryGetProperty("targetPath", out _));
+    }
+
+    [Fact]
+    public void ToolInvalidPatchException_SerializesOperationMetadata()
+    {
+        ToolInvalidPatchException exception = new(
+            "Path '/missing' does not exist.",
+            operationIndex: 1,
+            operation: "replace",
+            targetPath: "/missing"
+        );
+        var structuredContent = exception.ToStructuredContent();
+        Assert.Equal(
+            "invalid_patch",
+            structuredContent.GetProperty("kind")
+                             .GetString()
+        );
+        Assert.Equal(
+            1,
+            structuredContent.GetProperty("operationIndex")
+                             .GetInt32()
+        );
+        Assert.Equal(
+            "replace",
+            structuredContent.GetProperty("operation")
+                             .GetString()
+        );
+        Assert.Equal(
+            "/missing",
+            structuredContent.GetProperty("targetPath")
+                             .GetString()
+        );
+        Assert.False(structuredContent.TryGetProperty("path", out _));
     }
 
     [Fact]

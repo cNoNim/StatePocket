@@ -17,8 +17,12 @@ public sealed class CopyOperation : FromOperation
 
     internal override JsonNode? ApplyTo(JsonNode? document)
     {
-        var value = CloneValue(GetTargetNode(document, From));
-        return Add(Path, value)
-           .ApplyTo(document);
+        var value = CloneValue(GetTargetNode(document, From, OpName));
+        return AddValue(
+            document,
+            Path,
+            value,
+            OpName
+        );
     }
 }

@@ -1204,12 +1204,104 @@ public sealed class ToolResponseTests : IDisposable
             null,
             CancellationToken.None
         );
-        await Assert.ThrowsAsync<ToolInvalidPatchException>(() => updateTool.PatchValueCoreAsync(
+        var exception = await Assert.ThrowsAsync<ToolInvalidPatchException>(() =>
+            updateTool.PatchValueCoreAsync(
                 "profile",
                 Patch(Test("/name", "\"other\"")),
                 "codex",
                 CancellationToken.None
             )
+        );
+        var structuredContent = exception.ToStructuredContent();
+        Assert.Equal(
+            0,
+            structuredContent.GetProperty("operationIndex")
+                             .GetInt32()
+        );
+        Assert.Equal(
+            "test",
+            structuredContent.GetProperty("operation")
+                             .GetString()
+        );
+        Assert.Equal(
+            "/name",
+            structuredContent.GetProperty("targetPath")
+                             .GetString()
+        );
+        Assert.False(structuredContent.TryGetProperty("path", out _));
+    }
+
+    [Fact]
+    public async Task PatchValueCore_UsesSourcePathMetadataForMissingMoveSource()
+    {
+        SetValueTool setTool = new(_store);
+        PatchValueTool updateTool = new(_store);
+        await setTool.SetValueCoreAsync(
+            "profile",
+            ParseJson("{\"name\":\"old\"}"),
+            "codex",
+            null,
+            CancellationToken.None
+        );
+        var exception = await Assert.ThrowsAsync<ToolInvalidPatchException>(() => updateTool.PatchValueCoreAsync(
+                "profile",
+                Patch(Move("/missing", "/displayName")),
+                "codex",
+                CancellationToken.None
+            )
+        );
+        var structuredContent = exception.ToStructuredContent();
+        Assert.Equal(
+            0,
+            structuredContent.GetProperty("operationIndex")
+                             .GetInt32()
+        );
+        Assert.Equal(
+            "move",
+            structuredContent.GetProperty("operation")
+                             .GetString()
+        );
+        Assert.Equal(
+            "/missing",
+            structuredContent.GetProperty("targetPath")
+                             .GetString()
+        );
+    }
+
+    [Fact]
+    public async Task PatchValueCore_UsesSourcePathMetadataForMissingCopySource()
+    {
+        SetValueTool setTool = new(_store);
+        PatchValueTool updateTool = new(_store);
+        await setTool.SetValueCoreAsync(
+            "profile",
+            ParseJson("{\"name\":\"old\"}"),
+            "codex",
+            null,
+            CancellationToken.None
+        );
+        var exception = await Assert.ThrowsAsync<ToolInvalidPatchException>(() => updateTool.PatchValueCoreAsync(
+                "profile",
+                Patch(Copy("/missing", "/nameCopy")),
+                "codex",
+                CancellationToken.None
+            )
+        );
+        var structuredContent = exception.ToStructuredContent();
+        Assert.Equal(
+            0,
+            structuredContent.GetProperty("operationIndex")
+                             .GetInt32()
+        );
+        Assert.Equal(
+            "copy",
+            structuredContent.GetProperty("operation")
+                             .GetString()
+        );
+        Assert.Equal(
+            "/missing",
+            structuredContent.GetProperty("targetPath")
+                             .GetString()
         );
     }
 
@@ -1249,6 +1341,11 @@ public sealed class ToolResponseTests : IDisposable
             )
         );
         Assert.Contains("could not be converted", exception.Message, StringComparison.OrdinalIgnoreCase);
+        var structuredContent = exception.ToStructuredContent();
+        Assert.True(structuredContent.TryGetProperty("path", out _));
+        Assert.False(structuredContent.TryGetProperty("operationIndex", out _));
+        Assert.False(structuredContent.TryGetProperty("operation", out _));
+        Assert.False(structuredContent.TryGetProperty("targetPath", out _));
     }
 
     [Fact]

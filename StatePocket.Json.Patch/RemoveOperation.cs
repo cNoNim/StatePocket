@@ -17,21 +17,6 @@ public sealed class RemoveOperation : JsonPatchOperation
 
     internal override JsonNode? ApplyTo(JsonNode? document)
     {
-        if (Path.IsRoot)
-        {
-            throw new JsonPatchException("Removing the whole document is not supported.");
-        }
-        var parent = GetParentNode(document, Path);
-        var segment = GetRequiredTargetSegment(Path);
-        switch (parent)
-        {
-            case JsonObject jsonObject when jsonObject.Remove(segment):
-                return document;
-            case JsonArray jsonArray:
-                jsonArray.RemoveAt(ParseExistingArrayIndex(jsonArray, segment));
-                return document;
-            default:
-                throw new JsonPatchException($"Path '{Path}' does not exist.");
-        }
+        return RemoveValue(document, Path, OpName);
     }
 }

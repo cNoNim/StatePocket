@@ -17,22 +17,11 @@ public sealed class ReplaceOperation : ValueOperation
 
     internal override JsonNode? ApplyTo(JsonNode? document)
     {
-        if (Path.IsRoot)
-        {
-            return GetValueNode();
-        }
-        var parent = GetParentNode(document, Path);
-        var segment = GetRequiredTargetSegment(Path);
-        switch (parent)
-        {
-            case JsonObject jsonObject when jsonObject.ContainsKey(segment):
-                jsonObject[segment] = GetValueNode();
-                return document;
-            case JsonArray jsonArray:
-                jsonArray[ParseExistingArrayIndex(jsonArray, segment)] = GetValueNode();
-                return document;
-            default:
-                throw new JsonPatchException($"Path '{Path}' does not exist.");
-        }
+        return ReplaceValue(
+            document,
+            Path,
+            GetValueNode(),
+            OpName
+        );
     }
 }

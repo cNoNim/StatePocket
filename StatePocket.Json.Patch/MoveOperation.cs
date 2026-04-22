@@ -17,19 +17,22 @@ public sealed class MoveOperation : FromOperation
 
     internal override JsonNode? ApplyTo(JsonNode? document)
     {
-        var sourceValue = GetTargetNode(document, From);
+        var sourceValue = GetTargetNode(document, From, OpName);
         if (PathsEqual(From, Path))
         {
             return document;
         }
         if (From.IsPrefixOf(Path))
         {
-            throw new JsonPatchException("Move operation cannot move a value into its own child path.");
+            throw new JsonPatchException("Move operation cannot move a value into its own child path.", OpName, Path);
         }
         var value = CloneValue(sourceValue);
-        var removedDocument = Remove(From)
-           .ApplyTo(document);
-        return Add(Path, value)
-           .ApplyTo(removedDocument);
+        var removedDocument = RemoveValue(document, From, OpName);
+        return AddValue(
+            removedDocument,
+            Path,
+            value,
+            OpName
+        );
     }
 }

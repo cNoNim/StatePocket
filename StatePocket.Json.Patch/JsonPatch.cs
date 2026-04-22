@@ -26,7 +26,20 @@ public sealed class JsonPatch
     public JsonNode? Apply(JsonNode? document)
     {
         var workingDocument = document?.DeepClone();
-        return _operations.Aggregate(workingDocument, static (current, operation) => operation.ApplyTo(current));
+        for (var i = 0; i < _operations.Length; i++)
+        {
+            var operation = _operations[i];
+            try
+            {
+                workingDocument = operation.ApplyTo(workingDocument);
+            }
+            catch (JsonPatchException exception)
+            {
+                exception.OperationIndex ??= i;
+                throw;
+            }
+        }
+        return workingDocument;
     }
 
     private static JsonPatchOperation[] CreateSnapshot(IReadOnlyList<JsonPatchOperation> operations)

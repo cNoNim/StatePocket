@@ -26,6 +26,18 @@ public abstract class JsonPatchOperation
     public required JsonPointer Path { get; init; }
     [JsonIgnore]
     public abstract JsonPatchOperationType Op { get; }
+    [JsonIgnore]
+    internal string OpName =>
+        Op switch
+        {
+            JsonPatchOperationType.Add => "add",
+            JsonPatchOperationType.Remove => "remove",
+            JsonPatchOperationType.Replace => "replace",
+            JsonPatchOperationType.Move => "move",
+            JsonPatchOperationType.Copy => "copy",
+            JsonPatchOperationType.Test => "test",
+            _ => throw new InvalidOperationException($"Unsupported patch operation '{Op}'.")
+        };
     internal abstract JsonNode? ApplyTo(JsonNode? document);
 
     public static AddOperation Add(JsonPointer path, JsonNode? value)
@@ -88,51 +100,158 @@ public abstract class JsonPatchOperation
         return Test(JsonPointer.Parse(path, null), value);
     }
 
-    protected static JsonNode? GetTargetNode(JsonNode? document, JsonPointer parsedPath)
+    protected static JsonNode? GetTargetNode(JsonNode? document, JsonPointer parsedPath, string operation)
     {
         if (parsedPath.IsRoot)
         {
             return document;
         }
-        var parent = GetParentNode(document, parsedPath);
-        var segment = GetRequiredTargetSegment(parsedPath);
+        var parent = GetParentNode(document, parsedPath, operation);
+        var segment = GetRequiredTargetSegment(parsedPath, operation);
         return parent switch
         {
             JsonObject jsonObject when jsonObject.TryGetPropertyValue(segment, out var child) => child,
-            JsonArray jsonArray => jsonArray[ParseExistingArrayIndex(jsonArray, segment)],
-            _ => throw new JsonPatchException($"Path '{FormatPath(parsedPath)}' does not exist.")
+            JsonArray jsonArray => jsonArray[ParseExistingArrayIndex(
+                jsonArray,
+                segment,
+                operation,
+                parsedPath
+            )],
+            _ => throw new JsonPatchException($"Path '{parsedPath}' does not exist.", operation, parsedPath)
         };
     }
 
-    protected static JsonNode GetParentNode(JsonNode? document, JsonPointer parsedPath)
+    private static JsonNode GetParentNode(JsonNode? document, JsonPointer parsedPath, string operation)
     {
         return parsedPath.TryEvaluateParent(document, out var parent) && parent is not null
           ? parent
-          : throw new JsonPatchException($"Path '{FormatPath(parsedPath)}' does not exist.");
+          : throw new JsonPatchException($"Path '{parsedPath}' does not exist.", operation, parsedPath);
     }
 
-    protected static int ParseExistingArrayIndex(JsonArray jsonArray, string segment)
+    protected static JsonNode? AddValue(
+        JsonNode? document,
+        JsonPointer path,
+        JsonNode? value,
+        string operation
+    )
     {
-        var index = ParseArrayIndex(segment);
+        if (path.IsRoot)
+        {
+            return CloneValue(value);
+        }
+        var parent = GetParentNode(document, path, operation);
+        var segment = GetRequiredTargetSegment(path, operation);
+        switch (parent)
+        {
+            case JsonObject jsonObject:
+                jsonObject[segment] = CloneValue(value);
+                return document;
+            case JsonArray jsonArray:
+                jsonArray.Insert(
+                    ParseArrayInsertIndex(
+                        jsonArray,
+                        segment,
+                        operation,
+                        path
+                    ),
+                    CloneValue(value)
+                );
+                return document;
+            default:
+                throw new JsonPatchException($"Path '{path}' does not target an object or array.", operation, path);
+        }
+    }
+
+    protected static JsonNode? RemoveValue(JsonNode? document, JsonPointer path, string operation)
+    {
+        if (path.IsRoot)
+        {
+            throw new JsonPatchException("Removing the whole document is not supported.", operation, path);
+        }
+        var parent = GetParentNode(document, path, operation);
+        var segment = GetRequiredTargetSegment(path, operation);
+        switch (parent)
+        {
+            case JsonObject jsonObject when jsonObject.Remove(segment):
+                return document;
+            case JsonArray jsonArray:
+                jsonArray.RemoveAt(
+                    ParseExistingArrayIndex(
+                        jsonArray,
+                        segment,
+                        operation,
+                        path
+                    )
+                );
+                return document;
+            default:
+                throw new JsonPatchException($"Path '{path}' does not exist.", operation, path);
+        }
+    }
+
+    protected static JsonNode? ReplaceValue(
+        JsonNode? document,
+        JsonPointer path,
+        JsonNode? value,
+        string operation
+    )
+    {
+        if (path.IsRoot)
+        {
+            return CloneValue(value);
+        }
+        var parent = GetParentNode(document, path, operation);
+        var segment = GetRequiredTargetSegment(path, operation);
+        switch (parent)
+        {
+            case JsonObject jsonObject when jsonObject.ContainsKey(segment):
+                jsonObject[segment] = CloneValue(value);
+                return document;
+            case JsonArray jsonArray:
+                jsonArray[ParseExistingArrayIndex(
+                    jsonArray,
+                    segment,
+                    operation,
+                    path
+                )] = CloneValue(value);
+                return document;
+            default:
+                throw new JsonPatchException($"Path '{path}' does not exist.", operation, path);
+        }
+    }
+
+    private static int ParseExistingArrayIndex(
+        JsonArray jsonArray,
+        string segment,
+        string operation,
+        JsonPointer targetPath
+    )
+    {
+        var index = ParseArrayIndex(segment, operation, targetPath);
         if (index < 0
          || index >= jsonArray.Count)
         {
-            throw new JsonPatchException($"Array index '{segment}' is out of range.");
+            throw new JsonPatchException($"Array index '{segment}' is out of range.", operation, targetPath);
         }
         return index;
     }
 
-    protected static int ParseArrayInsertIndex(JsonArray jsonArray, string segment)
+    private static int ParseArrayInsertIndex(
+        JsonArray jsonArray,
+        string segment,
+        string operation,
+        JsonPointer targetPath
+    )
     {
         if (segment == "-")
         {
             return jsonArray.Count;
         }
-        var index = ParseArrayIndex(segment);
+        var index = ParseArrayIndex(segment, operation, targetPath);
         if (index < 0
          || index > jsonArray.Count)
         {
-            throw new JsonPatchException($"Array index '{segment}' is out of range.");
+            throw new JsonPatchException($"Array index '{segment}' is out of range.", operation, targetPath);
         }
         return index;
     }
@@ -147,17 +266,17 @@ public abstract class JsonPatchOperation
         return value?.DeepClone();
     }
 
-    protected static string GetRequiredTargetSegment(JsonPointer parsedPath)
+    private static string GetRequiredTargetSegment(JsonPointer parsedPath, string operation)
     {
         return parsedPath.LastSegment
-            ?? throw new JsonPatchException("JSON Pointer path must contain a target segment.");
+            ?? throw new JsonPatchException("JSON Pointer path must contain a target segment.", operation, parsedPath);
     }
 
-    private static int ParseArrayIndex(string segment)
+    private static int ParseArrayIndex(string segment, string operation, JsonPointer targetPath)
     {
         if (string.IsNullOrEmpty(segment))
         {
-            throw new JsonPatchException($"Array index '{segment}' is invalid.");
+            throw new JsonPatchException($"Array index '{segment}' is invalid.", operation, targetPath);
         }
         if (segment == "0")
         {
@@ -165,13 +284,13 @@ public abstract class JsonPatchOperation
         }
         if (segment[0] == '0')
         {
-            throw new JsonPatchException($"Array index '{segment}' is invalid.");
+            throw new JsonPatchException($"Array index '{segment}' is invalid.", operation, targetPath);
         }
         foreach (var character in segment)
         {
             if (!char.IsAsciiDigit(character))
             {
-                throw new JsonPatchException($"Array index '{segment}' is invalid.");
+                throw new JsonPatchException($"Array index '{segment}' is invalid.", operation, targetPath);
             }
         }
         return int.TryParse(
@@ -181,11 +300,6 @@ public abstract class JsonPatchOperation
             out var index
         )
           ? index
-          : throw new JsonPatchException($"Array index '{segment}' is invalid.");
-    }
-
-    private static string FormatPath(JsonPointer parsedPath)
-    {
-        return parsedPath.ToString();
+          : throw new JsonPatchException($"Array index '{segment}' is invalid.", operation, targetPath);
     }
 }

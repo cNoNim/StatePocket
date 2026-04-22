@@ -24,6 +24,6 @@ public abstract class ValueOperation : JsonPatchOperation
 
     internal JsonNode? GetValueNode()
     {
-        return CloneValue(_value);
+        return _value;
     }
 }

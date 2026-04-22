@@ -17,9 +17,9 @@ public sealed class TestOperation : ValueOperation
 
     internal override JsonNode? ApplyTo(JsonNode? document)
     {
-        var actual = GetTargetNode(document, Path);
+        var actual = GetTargetNode(document, Path, OpName);
         return JsonNode.DeepEquals(actual, GetValueNode())
           ? document
-          : throw new JsonPatchException($"Test operation failed at path '{Path}'.");
+          : throw new JsonPatchException($"Test operation failed at path '{Path}'.", OpName, Path);
     }
 }
