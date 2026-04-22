@@ -40,9 +40,7 @@ internal static class ToolErrorFactory
         {
             Message = exception.Message,
             Retryable = false,
-            Path = exception.Path,
-            LineNumber = exception.LineNumber,
-            BytePositionInLine = exception.BytePositionInLine
+            Path = exception.Path
         };
     }
 

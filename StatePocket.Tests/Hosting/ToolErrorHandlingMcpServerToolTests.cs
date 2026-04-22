@@ -75,16 +75,8 @@ public sealed class ToolErrorHandlingMcpServerToolTests
             structuredContent.GetProperty("path")
                              .GetString()
         );
-        Assert.Equal(
-            3,
-            structuredContent.GetProperty("lineNumber")
-                             .GetInt64()
-        );
-        Assert.Equal(
-            14,
-            structuredContent.GetProperty("bytePositionInLine")
-                             .GetInt64()
-        );
+        Assert.False(structuredContent.TryGetProperty("lineNumber", out _));
+        Assert.False(structuredContent.TryGetProperty("bytePositionInLine", out _));
     }
 
     [Fact]

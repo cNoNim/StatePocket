@@ -2,13 +2,8 @@ using StatePocket.Contracts;
 
 namespace StatePocket.Errors;
 
-internal sealed class ToolInvalidJsonException(
-    string message,
-    string? path = null,
-    long? lineNumber = null,
-    long? bytePositionInLine = null,
-    Exception? innerException = null
-) : ToolErrorException(message, innerException)
+internal sealed class ToolInvalidJsonException(string message, string? path = null, Exception? innerException = null)
+    : ToolErrorException(message, innerException)
 {
     public override ToolError ToPayload()
     {
@@ -16,9 +11,7 @@ internal sealed class ToolInvalidJsonException(
         {
             Message = Message,
             Retryable = false,
-            Path = path,
-            LineNumber = lineNumber,
-            BytePositionInLine = bytePositionInLine
+            Path = path
         };
     }
 }

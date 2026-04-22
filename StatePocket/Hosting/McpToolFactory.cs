@@ -20,11 +20,16 @@ internal static class McpToolFactory
         return Create(method.Method, method.Target, services);
     }
 
-    internal static McpServerTool Create(MethodInfo method, object? target, IServiceProvider services)
+    private static ToolErrorHandlingMcpServerTool Create(MethodInfo method, object? target, IServiceProvider services)
+    {
+        return new ToolErrorHandlingMcpServerTool(CreateRaw(method, target, services));
+    }
+
+    internal static McpServerTool CreateRaw(MethodInfo method, object? target, IServiceProvider services)
     {
         ArgumentNullException.ThrowIfNull(method);
         ArgumentNullException.ThrowIfNull(services);
-        var tool = McpServerTool.Create(
+        return McpServerTool.Create(
             method,
             target,
             new McpServerToolCreateOptions
@@ -34,7 +39,6 @@ internal static class McpToolFactory
                 SchemaCreateOptions = CreateSchemaCreateOptions()
             }
         );
-        return new ToolErrorHandlingMcpServerTool(tool);
     }
 
     private static JsonObject CreateAnyJsonSchema(JsonObject? existing)

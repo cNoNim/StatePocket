@@ -67,13 +67,7 @@ internal static class ToolArgumentHelper
         }
         catch (JsonException exception)
         {
-            throw new ToolInvalidPatchException(
-                exception.Message,
-                path: exception.Path,
-                lineNumber: exception.LineNumber,
-                bytePositionInLine: exception.BytePositionInLine,
-                innerException: exception
-            );
+            throw new ToolInvalidPatchException(exception.Message, path: exception.Path, innerException: exception);
         }
     }
 
@@ -89,8 +83,6 @@ internal static class ToolArgumentHelper
             throw new ToolInvalidJsonException(
                 $"{argumentName ?? "value"} must be valid JSON when format is 'json'.",
                 exception.Path,
-                exception.LineNumber,
-                exception.BytePositionInLine,
                 exception
             );
         }

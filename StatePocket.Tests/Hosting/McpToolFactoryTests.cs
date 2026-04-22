@@ -513,8 +513,13 @@ public sealed class McpToolFactoryTests
         var result = await handler(request, CancellationToken.None);
         var structuredContent = AssertStructuredErrorResult(result, "invalid_argument");
         Assert.Equal(
-            "value must not be null.",
+            "The 'value' argument is required.",
             structuredContent.GetProperty("message")
+                             .GetString()
+        );
+        Assert.Equal(
+            "value",
+            structuredContent.GetProperty("argument")
                              .GetString()
         );
     }
@@ -535,11 +540,15 @@ public sealed class McpToolFactoryTests
         var handler = McpRegistration.CreateJsonExceptionCallToolFilter(tool.InvokeAsync);
         var result = await handler(request, CancellationToken.None);
         var structuredContent = AssertStructuredErrorResult(result, "invalid_argument");
-        Assert.Contains(
-            "required parameter 'value'",
+        Assert.Equal(
+            "The 'value' argument is required.",
             structuredContent.GetProperty("message")
-                             .GetString(),
-            StringComparison.Ordinal
+                             .GetString()
+        );
+        Assert.Equal(
+            "value",
+            structuredContent.GetProperty("argument")
+                             .GetString()
         );
     }
 
@@ -658,11 +667,76 @@ public sealed class McpToolFactoryTests
         );
         var result = await tool.InvokeAsync(request, CancellationToken.None);
         var structuredContent = AssertStructuredErrorResult(result, "invalid_argument");
-        Assert.Contains(
-            "required parameter 'value'",
+        Assert.Equal(
+            "The 'value' argument is required.",
             structuredContent.GetProperty("message")
-                             .GetString(),
-            StringComparison.Ordinal
+                             .GetString()
+        );
+        Assert.Equal(
+            "value",
+            structuredContent.GetProperty("argument")
+                             .GetString()
+        );
+    }
+
+    [Fact]
+    public async Task CreatedTool_RejectsMisspelledRequiredArgumentNameWithArgumentMetadata()
+    {
+        var tool = CreateTool(SetValueTool.ToolName);
+        await using var serverServices = CreateMcpServerServices();
+        var request = CreateCallToolRequestContext(
+            serverServices.GetRequiredService<McpServer>(),
+            SetValueTool.ToolName,
+            new Dictionary<string, JsonElement>
+            {
+                ["key"] = JsonSerializer.SerializeToElement("alpha"),
+                ["valeu"] = JsonSerializer.SerializeToElement("""{"ok":true}""")
+            }
+        );
+        var result = await tool.InvokeAsync(request, CancellationToken.None);
+        var structuredContent = AssertStructuredErrorResult(result, "invalid_argument");
+        Assert.Equal(
+            "The 'value' argument is required.",
+            structuredContent.GetProperty("message")
+                             .GetString()
+        );
+        Assert.Equal(
+            "value",
+            structuredContent.GetProperty("argument")
+                             .GetString()
+        );
+    }
+
+    [Fact]
+    public async Task CreatedTool_RejectsObjectKeyAsInvalidArgument()
+    {
+        var tool = CreateTool(SetValueTool.ToolName);
+        await using var serverServices = CreateMcpServerServices();
+        var request = CreateCallToolRequestContext(
+            serverServices.GetRequiredService<McpServer>(),
+            SetValueTool.ToolName,
+            new Dictionary<string, JsonElement>
+            {
+                ["key"] = JsonSerializer.SerializeToElement(
+                    new Dictionary<string, int>
+                    {
+                        ["bad"] = 1
+                    }
+                ),
+                ["value"] = JsonSerializer.SerializeToElement("""{"ok":true}""")
+            }
+        );
+        var result = await tool.InvokeAsync(request, CancellationToken.None);
+        var structuredContent = AssertStructuredErrorResult(result, "invalid_argument");
+        Assert.Equal(
+            "The 'key' argument must be a string.",
+            structuredContent.GetProperty("message")
+                             .GetString()
+        );
+        Assert.Equal(
+            "key",
+            structuredContent.GetProperty("argument")
+                             .GetString()
         );
     }
 

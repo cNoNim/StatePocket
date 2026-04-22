@@ -1,4 +1,6 @@
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.Server;
 using StatePocket.Tools;
 
 namespace StatePocket.Hosting;
@@ -14,7 +16,10 @@ internal static class McpTools
             {
                 var target = services.GetRequiredService<SetValueTool>();
                 var method = target.SetValueAsync;
-                return McpToolFactory.Create(method.Method, target, services);
+                return WrapWithValidation(
+                    McpToolFactory.CreateRaw(method.Method, target, services),
+                    static arguments => ToolArgumentValidator.ValidateSetValueArguments(arguments)
+                );
             }
         ),
         new(
@@ -24,7 +29,10 @@ internal static class McpTools
             {
                 var target = services.GetRequiredService<GetValueTool>();
                 var method = target.GetValueAsync;
-                return McpToolFactory.Create(method.Method, target, services);
+                return WrapWithValidation(
+                    McpToolFactory.CreateRaw(method.Method, target, services),
+                    static arguments => ToolArgumentValidator.ValidateGetValueArguments(arguments)
+                );
             }
         ),
         new(
@@ -34,7 +42,10 @@ internal static class McpTools
             {
                 var target = services.GetRequiredService<GetValuesTool>();
                 var method = target.GetValuesAsync;
-                return McpToolFactory.Create(method.Method, target, services);
+                return WrapWithValidation(
+                    McpToolFactory.CreateRaw(method.Method, target, services),
+                    static arguments => ToolArgumentValidator.ValidateGetValuesArguments(arguments)
+                );
             }
         ),
         new(
@@ -44,7 +55,10 @@ internal static class McpTools
             {
                 var target = services.GetRequiredService<QueryValuesTool>();
                 var method = target.QueryValuesAsync;
-                return McpToolFactory.Create(method.Method, target, services);
+                return WrapWithValidation(
+                    McpToolFactory.CreateRaw(method.Method, target, services),
+                    static arguments => ToolArgumentValidator.ValidateQueryValuesArguments(arguments)
+                );
             }
         ),
         new(
@@ -54,7 +68,10 @@ internal static class McpTools
             {
                 var target = services.GetRequiredService<ListNamespacesTool>();
                 var method = target.ListNamespacesAsync;
-                return McpToolFactory.Create(method.Method, target, services);
+                return WrapWithValidation(
+                    McpToolFactory.CreateRaw(method.Method, target, services),
+                    static arguments => ToolArgumentValidator.ValidateListNamespacesArguments(arguments)
+                );
             }
         ),
         new(
@@ -64,7 +81,10 @@ internal static class McpTools
             {
                 var target = services.GetRequiredService<ListKeysTool>();
                 var method = target.ListKeysAsync;
-                return McpToolFactory.Create(method.Method, target, services);
+                return WrapWithValidation(
+                    McpToolFactory.CreateRaw(method.Method, target, services),
+                    static arguments => ToolArgumentValidator.ValidateListKeysArguments(arguments)
+                );
             }
         ),
         new(
@@ -74,7 +94,10 @@ internal static class McpTools
             {
                 var target = services.GetRequiredService<DeleteValueTool>();
                 var method = target.DeleteValueAsync;
-                return McpToolFactory.Create(method.Method, target, services);
+                return WrapWithValidation(
+                    McpToolFactory.CreateRaw(method.Method, target, services),
+                    static arguments => ToolArgumentValidator.ValidateDeleteValueArguments(arguments)
+                );
             }
         ),
         new(
@@ -84,8 +107,21 @@ internal static class McpTools
             {
                 var target = services.GetRequiredService<PatchValueTool>();
                 var method = target.PatchValueAsync;
-                return McpToolFactory.Create(method.Method, target, services);
+                return WrapWithValidation(
+                    McpToolFactory.CreateRaw(method.Method, target, services),
+                    static arguments => ToolArgumentValidator.ValidatePatchValueArguments(arguments)
+                );
             }
         )
     ];
+
+    private static ToolErrorHandlingMcpServerTool WrapWithValidation(
+        McpServerTool tool,
+        Action<IDictionary<string, JsonElement>?> validateArguments
+    )
+    {
+        return new ToolErrorHandlingMcpServerTool(
+            new ValidatedMcpTool(tool, request => validateArguments(request.Params.Arguments))
+        );
+    }
 }

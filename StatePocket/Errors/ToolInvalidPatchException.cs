@@ -6,8 +6,6 @@ internal sealed class ToolInvalidPatchException(
     string message,
     string? argument = "patch",
     string? path = null,
-    long? lineNumber = null,
-    long? bytePositionInLine = null,
     Exception? innerException = null
 ) : ToolErrorException(message, innerException)
 {
@@ -18,9 +16,7 @@ internal sealed class ToolInvalidPatchException(
             Message = Message,
             Retryable = false,
             Argument = argument,
-            Path = path,
-            LineNumber = lineNumber,
-            BytePositionInLine = bytePositionInLine
+            Path = path
         };
     }
 }

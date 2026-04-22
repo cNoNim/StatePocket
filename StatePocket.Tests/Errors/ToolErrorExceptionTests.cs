@@ -80,12 +80,7 @@ public sealed class ToolErrorExceptionTests
     [Fact]
     public void ToolInvalidPatchException_SerializesJsonMetadata()
     {
-        ToolInvalidPatchException exception = new(
-            "Invalid patch JSON.",
-            path: "$[0].value",
-            lineNumber: 3,
-            bytePositionInLine: 14
-        );
+        ToolInvalidPatchException exception = new("Invalid patch JSON.", path: "$[0].value");
         var structuredContent = exception.ToStructuredContent();
         Assert.Equal(
             "invalid_patch",
@@ -97,16 +92,8 @@ public sealed class ToolErrorExceptionTests
             structuredContent.GetProperty("path")
                              .GetString()
         );
-        Assert.Equal(
-            3,
-            structuredContent.GetProperty("lineNumber")
-                             .GetInt64()
-        );
-        Assert.Equal(
-            14,
-            structuredContent.GetProperty("bytePositionInLine")
-                             .GetInt64()
-        );
+        Assert.False(structuredContent.TryGetProperty("lineNumber", out _));
+        Assert.False(structuredContent.TryGetProperty("bytePositionInLine", out _));
     }
 
     [Fact]
