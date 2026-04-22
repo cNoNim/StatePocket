@@ -40,9 +40,19 @@ public readonly partial struct JsonPointer
 
     private static ReadOnlyMemory<string> ParseSegments(ReadOnlySpan<byte> utf8Text)
     {
-        return TryParseSegments(utf8Text, out var segments)
-          ? segments
-          : throw new JsonPointerException("Invalid JSON Pointer UTF-8 path.");
+        if (TryParseSegments(utf8Text, out var segments))
+        {
+            return segments;
+        }
+        try
+        {
+            _ = StrictUtf8Encoding.GetString(utf8Text);
+        }
+        catch (DecoderFallbackException exception)
+        {
+            throw new JsonPointerException("Invalid JSON Pointer UTF-8 path.", exception);
+        }
+        throw new JsonPointerException("Invalid JSON Pointer UTF-8 path.");
     }
 
     private static bool TryParseSegments(ReadOnlySpan<char> path, out ReadOnlyMemory<string> segments)

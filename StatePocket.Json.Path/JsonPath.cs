@@ -423,9 +423,9 @@ public sealed partial class JsonPath
             return document.RootElement[0]
                            .Clone();
         }
-        catch (JsonException)
+        catch (JsonException exception)
         {
-            throw new JsonPathException($"Invalid JSONPath selector '{selector}'.");
+            throw new JsonPathException($"Invalid JSONPath selector '{selector}'.", exception);
         }
     }
 
@@ -711,9 +711,8 @@ public sealed partial class JsonPath
         {
             throw new JsonPathException($"Invalid JSONPath selector '{selector}'.");
         }
-        var hex = content.Substring(index, 4);
         if (!ushort.TryParse(
-                hex,
+                content.AsSpan(index, 4),
                 NumberStyles.AllowHexSpecifier,
                 CultureInfo.InvariantCulture,
                 out var codeUnit
@@ -867,34 +866,51 @@ public sealed partial class JsonPath
 
     private static string NormalizeName(string name)
     {
-        var builder = new StringBuilder();
+        var builder = new StringBuilder(name.Length + 4);
+        builder.Append("['");
         foreach (var character in name)
         {
             if (character < ' ')
             {
-                builder.Append(
-                    character switch
-                    {
-                        '\b' => "\\b",
-                        '\f' => "\\f",
-                        '\n' => "\\n",
-                        '\r' => "\\r",
-                        '\t' => "\\t",
-                        _ => $@"\u{((int)character).ToString("x4", CultureInfo.InvariantCulture)}"
-                    }
-                );
+                switch (character)
+                {
+                    case '\b':
+                        builder.Append("\\b");
+                        break;
+                    case '\f':
+                        builder.Append("\\f");
+                        break;
+                    case '\n':
+                        builder.Append("\\n");
+                        break;
+                    case '\r':
+                        builder.Append("\\r");
+                        break;
+                    case '\t':
+                        builder.Append("\\t");
+                        break;
+                    default:
+                        builder.Append(@"\u");
+                        builder.Append(((int)character).ToString("x4", CultureInfo.InvariantCulture));
+                        break;
+                }
                 continue;
             }
-            builder.Append(
-                character switch
-                {
-                    '\\' => "\\\\",
-                    '\'' => "\\'",
-                    _ => character.ToString()
-                }
-            );
+            switch (character)
+            {
+                case '\\':
+                    builder.Append("\\\\");
+                    break;
+                case '\'':
+                    builder.Append("\\'");
+                    break;
+                default:
+                    builder.Append(character);
+                    break;
+            }
         }
-        return $"['{builder}']";
+        builder.Append("']");
+        return builder.ToString();
     }
 
     private static bool TryGetSingularValue(FilterValue value, out JsonElement result)
@@ -960,9 +976,9 @@ public sealed partial class JsonPath
         {
             return new Regex(effectivePattern, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
         }
-        catch (ArgumentException)
+        catch (ArgumentException exception)
         {
-            throw new JsonPathException($"Invalid JSONPath selector '{selector}'.");
+            throw new JsonPathException($"Invalid JSONPath selector '{selector}'.", exception);
         }
     }
 

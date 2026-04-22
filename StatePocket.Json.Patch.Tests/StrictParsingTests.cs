@@ -55,6 +55,14 @@ public sealed class StrictParsingTests
         );
     }
 
+    [Fact]
+    public void JsonPatchException_Constructor_PreservesInnerException()
+    {
+        var innerException = new InvalidOperationException("inner");
+        var exception = new JsonPatchException("outer", innerException);
+        Assert.Same(innerException, exception.InnerException);
+    }
+
     private static JsonNode ParseNode(string json)
     {
         return JsonNode.Parse(json) ?? throw new InvalidOperationException("JSON must parse.");

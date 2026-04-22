@@ -94,7 +94,10 @@ internal sealed class SqliteDatabaseInitializer(ResolvedOptions resolvedOptions)
                 await alterTableCommand.ExecuteNonQueryAsync(cancellationToken)
                                        .ConfigureAwait(false);
             }
-            catch (SqliteException exception) when (IsDuplicateRevisionColumnError(exception)) {}
+            catch (SqliteException exception) when (IsDuplicateRevisionColumnError(exception))
+            {
+                // A concurrent initializer already added the column.
+            }
         }
     }
 
