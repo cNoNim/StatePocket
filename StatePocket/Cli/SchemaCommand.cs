@@ -171,7 +171,7 @@ internal static class SchemaCommand
             throw new NotSupportedException();
         }
 
-        public Task<bool> DeleteValueAsync(string? @namespace, string key, CancellationToken cancellationToken)
+        public Task<KvValue?> DeleteValueAsync(string? @namespace, string key, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }

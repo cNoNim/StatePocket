@@ -13,7 +13,8 @@ internal sealed partial class SqliteKvStore
                                                   DELETE FROM kv
                                                   WHERE namespace = $namespace
                                                     AND key = $key
-                                                    AND (expires_at IS NULL OR expires_at > $now);
+                                                    AND (expires_at IS NULL OR expires_at > $now)
+                                                  RETURNING value, expires_at, updated_at, revision;
                                                   """;
     private const string PurgeExpiredCommandText = """
                                                    DELETE FROM kv
@@ -132,7 +133,7 @@ internal sealed partial class SqliteKvStore
         );
     }
 
-    public Task<bool> DeleteValueAsync(string? @namespace, string key, CancellationToken cancellationToken)
+    public Task<KvValue?> DeleteValueAsync(string? @namespace, string key, CancellationToken cancellationToken)
     {
         var normalizedNamespace = NormalizeNamespace(@namespace);
         var now = FormatTimestamp(timeProvider.GetUtcNow());
@@ -149,9 +150,18 @@ internal sealed partial class SqliteKvStore
                         command.Parameters.AddWithValue("$namespace", normalizedNamespace);
                         command.Parameters.AddWithValue("$key", key);
                         command.Parameters.AddWithValue("$now", now);
-                        return await command.ExecuteNonQueryAsync(cancellationToken)
-                                            .ConfigureAwait(false)
-                             > 0;
+                        var reader = await command.ExecuteReaderAsync(cancellationToken)
+                                                  .ConfigureAwait(false);
+                        await using (reader.ConfigureAwait(false))
+                        {
+                            if (!await reader.ReadAsync(cancellationToken)
+                                             .ConfigureAwait(false))
+                            {
+                                return null;
+                            }
+                            return await ReadKvValueAsync(reader, 0, cancellationToken)
+                               .ConfigureAwait(false);
+                        }
                     }
                 }
             }

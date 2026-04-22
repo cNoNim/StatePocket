@@ -1053,26 +1053,40 @@ public sealed class ToolResponseTests : IDisposable
         var result = await deleteTool.DeleteValueAsync("gone", "codex", CancellationToken.None);
         Assert.Equal("codex", result.Namespace);
         Assert.Equal("gone", result.Key);
+        Assert.True(result.Deleted);
+        Assert.True(result.DeletedValue.HasValue);
+        var deletedValue = result.DeletedValue.Value;
+        Assert.Equal("\"a\"", deletedValue.GetRawText());
     }
 
     [Fact]
-    public async Task DeleteValueCore_ThrowsToolNotFoundExceptionWhenKeyIsMissing()
+    public async Task DeleteValueCore_ReturnsDeletedFalseWhenKeyIsMissing()
     {
         DeleteValueTool tool = new(_store);
-        var exception = await Assert.ThrowsAsync<ToolNotFoundException>(() =>
-            tool.DeleteValueCoreAsync("missing", "codex", CancellationToken.None)
-        );
-        Assert.Equal("Key 'missing' was not found in namespace 'codex'.", exception.Message);
+        var result = await tool.DeleteValueCoreAsync("missing", "codex", CancellationToken.None);
+        Assert.Equal("codex", result.Namespace);
+        Assert.Equal("missing", result.Key);
+        Assert.False(result.Deleted);
+        Assert.Null(result.DeletedValue);
     }
 
     [Fact]
-    public async Task DeleteValue_ThrowsToolNotFoundExceptionWhenKeyIsMissing()
+    public async Task DeleteValue_PreservesExplicitJsonNullWhenDeletingNullValue()
     {
-        DeleteValueTool tool = new(_store);
-        var exception = await Assert.ThrowsAsync<ToolNotFoundException>(() =>
-            tool.DeleteValueAsync("missing", "codex", CancellationToken.None)
+        SetValueTool setTool = new(_store);
+        DeleteValueTool deleteTool = new(_store);
+        await setTool.SetValueCoreAsync(
+            "nullable",
+            ParseJson("null"),
+            "codex",
+            null,
+            CancellationToken.None
         );
-        Assert.Equal("Key 'missing' was not found in namespace 'codex'.", exception.Message);
+        var result = await deleteTool.DeleteValueAsync("nullable", "codex", CancellationToken.None);
+        Assert.True(result.Deleted);
+        Assert.True(result.DeletedValue.HasValue);
+        var deletedValue = result.DeletedValue.Value;
+        Assert.Equal(JsonValueKind.Null, deletedValue.ValueKind);
     }
 
     [Fact]
@@ -1576,6 +1590,36 @@ public sealed class ToolResponseTests : IDisposable
         );
         Assert.True(json.TryGetProperty("nextCursor", out _));
         Assert.False(json.TryGetProperty("next_cursor", out _));
+    }
+
+    [Fact]
+    public void DeleteValueResult_UsesCamelCaseJsonFieldNames()
+    {
+        var json = SerializeToolResult(
+            new DeleteValueResult
+            {
+                Namespace = "codex",
+                Key = "key",
+                Deleted = true,
+                DeletedValue = ParseJson("\"value\"")
+            }
+        );
+        Assert.True(json.TryGetProperty("deletedValue", out _));
+        Assert.False(json.TryGetProperty("deleted_value", out _));
+    }
+
+    [Fact]
+    public void DeleteValueResult_OmitsDeletedValueWhenNothingWasDeleted()
+    {
+        var json = SerializeToolResult(
+            new DeleteValueResult
+            {
+                Namespace = "codex",
+                Key = "key",
+                Deleted = false
+            }
+        );
+        Assert.False(json.TryGetProperty("deletedValue", out _));
     }
 
     private static JsonElement ParseJson(string json)

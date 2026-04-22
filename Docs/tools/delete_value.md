@@ -12,6 +12,13 @@ toolName = "delete_value"
 
 Use it when you want a hard delete instead of patching or overwriting the value.
 
+The result is idempotent:
+
+- `deleted = true` means a live key was removed
+- `deleted = false` means there was nothing live to remove
+- `deletedValue` is returned only when something was deleted
+- if the stored JSON value was `null`, then `deletedValue` is present and equal to `null`
+
 Good fits:
 
 - clear a cached entry

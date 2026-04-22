@@ -20,7 +20,7 @@ internal sealed class ToolRevisionConflictException(
         return new RevisionConflictToolError
         {
             Message = Message,
-            Retryable = false,
+            Retryable = true,
             Namespace = Namespace,
             Key = Key,
             ExpectedRevision = expectedRevision,

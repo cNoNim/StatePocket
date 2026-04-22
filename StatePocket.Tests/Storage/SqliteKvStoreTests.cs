@@ -247,7 +247,8 @@ public sealed class SqliteKvStoreTests : IDisposable
             cancellationToken: CancellationToken.None
         );
         var storedEntry = await _store.GetValueAsync("default", "recreated", CancellationToken.None);
-        Assert.True(deleted);
+        var deletedEntry = Assert.IsType<KvValue>(deleted);
+        Assert.Equal("\"first\"", deletedEntry.Value.GetRawText());
         Assert.Equal(1, firstWrite.Revision);
         Assert.Equal(2, recreatedWrite.Revision);
         var entry = Assert.IsType<KvValue>(storedEntry);
@@ -1036,7 +1037,7 @@ public sealed class SqliteKvStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task DeleteValue_ReturnsTrueOnlyWhenRowExisted()
+    public async Task DeleteValue_ReturnsDeletedEntryWhenRowExisted()
     {
         var storedValue = ParseJson("\"value\"");
         await _store.SetValueAsync(
@@ -1048,12 +1049,28 @@ public sealed class SqliteKvStoreTests : IDisposable
         );
         var deleted = await _store.DeleteValueAsync("default", "to-delete", CancellationToken.None);
         var deletedAgain = await _store.DeleteValueAsync("default", "to-delete", CancellationToken.None);
-        Assert.True(deleted);
-        Assert.False(deletedAgain);
+        var deletedEntry = Assert.IsType<KvValue>(deleted);
+        Assert.Equal("\"value\"", deletedEntry.Value.GetRawText());
+        Assert.Null(deletedAgain);
     }
 
     [Fact]
-    public async Task DeleteValue_ReturnsFalseForExpiredRow()
+    public async Task DeleteValue_PreservesExplicitJsonNullInDeletedEntry()
+    {
+        await _store.SetValueAsync(
+            "default",
+            "nullable-delete",
+            ParseJson("null"),
+            null,
+            cancellationToken: CancellationToken.None
+        );
+        var deleted = await _store.DeleteValueAsync("default", "nullable-delete", CancellationToken.None);
+        var deletedEntry = Assert.IsType<KvValue>(deleted);
+        Assert.Equal(JsonValueKind.Null, deletedEntry.Value.ValueKind);
+    }
+
+    [Fact]
+    public async Task DeleteValue_ReturnsNullForExpiredRow()
     {
         var storedValue = ParseJson("\"value\"");
         await _store.SetValueAsync(
@@ -1064,7 +1081,7 @@ public sealed class SqliteKvStoreTests : IDisposable
             cancellationToken: CancellationToken.None
         );
         var deleted = await _store.DeleteValueAsync("default", "expired-delete", CancellationToken.None);
-        Assert.False(deleted);
+        Assert.Null(deleted);
     }
 
     [Fact]

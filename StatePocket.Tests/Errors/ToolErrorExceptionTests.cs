@@ -66,6 +66,10 @@ public sealed class ToolErrorExceptionTests
             structuredContent.GetProperty("currentRevision")
                              .GetInt64()
         );
+        Assert.True(
+            structuredContent.GetProperty("retryable")
+                             .GetBoolean()
+        );
     }
 
     [Fact]

@@ -53,6 +53,6 @@ internal interface IKvStore
         CancellationToken cancellationToken
     );
 
-    public Task<bool> DeleteValueAsync(string? @namespace, string key, CancellationToken cancellationToken);
+    public Task<KvValue?> DeleteValueAsync(string? @namespace, string key, CancellationToken cancellationToken);
     public Task PurgeExpiredAsync(CancellationToken cancellationToken);
 }

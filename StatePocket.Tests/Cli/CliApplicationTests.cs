@@ -528,7 +528,7 @@ public sealed class CliApplicationTests
             throw new NotSupportedException();
         }
 
-        public Task<bool> DeleteValueAsync(string? @namespace, string key, CancellationToken cancellationToken)
+        public Task<KvValue?> DeleteValueAsync(string? @namespace, string key, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }
@@ -611,7 +611,7 @@ public sealed class CliApplicationTests
             throw new NotSupportedException();
         }
 
-        public Task<bool> DeleteValueAsync(string? @namespace, string key, CancellationToken cancellationToken)
+        public Task<KvValue?> DeleteValueAsync(string? @namespace, string key, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }

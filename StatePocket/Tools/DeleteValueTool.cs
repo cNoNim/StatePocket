@@ -17,7 +17,7 @@ internal sealed class DeleteValueTool(IKvStore kvStore)
         OpenWorld = false,
         UseStructuredContent = true
     )]
-    [Description("Deletes one key from a namespace.")]
+    [Description("Deletes one key from a namespace and reports whether anything was removed.")]
     internal async Task<DeleteValueResult> DeleteValueAsync(
         [Description("Key to delete.")] string key,
         [Description("Namespace to use. Defaults to 'default'.")] string? @namespace = null,
@@ -29,14 +29,12 @@ internal sealed class DeleteValueTool(IKvStore kvStore)
         var normalizedNamespace = @namespace ?? ToolArgumentHelper.DefaultNamespace;
         var deleted = await kvStore.DeleteValueAsync(normalizedNamespace, key, cancellationToken)
                                    .ConfigureAwait(false);
-        if (!deleted)
-        {
-            throw new ToolNotFoundException(normalizedNamespace, key);
-        }
         return new DeleteValueResult
         {
             Namespace = normalizedNamespace,
-            Key = key
+            Key = key,
+            Deleted = deleted is not null,
+            DeletedValue = deleted?.Value
         };
     }
 }

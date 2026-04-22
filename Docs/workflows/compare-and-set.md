@@ -21,3 +21,5 @@ Pattern:
 2. Compute the next value locally.
 3. Call `set_value` with `expectedRevision`.
 4. If the write conflicts, re-read and retry with fresh data.
+
+`revision_conflict` is marked as retryable because the workflow can usually succeed after refreshing state first. It does not mean blindly resending the same stale request.
