@@ -123,13 +123,23 @@ internal sealed class SqliteDatabaseInitializer(ResolvedOptions resolvedOptions)
         CancellationToken cancellationToken
     )
     {
-        var hasSeededRowsCommand = connection.CreateCommand();
-        await using (hasSeededRowsCommand.ConfigureAwait(false))
+        var missingNamespaceClockCommand = connection.CreateCommand();
+        await using (missingNamespaceClockCommand.ConfigureAwait(false))
         {
-            hasSeededRowsCommand.CommandText = "SELECT 1 FROM kv_namespace_revision LIMIT 1;";
-            var result = await hasSeededRowsCommand.ExecuteScalarAsync(cancellationToken)
-                                                   .ConfigureAwait(false);
-            return result is null;
+            missingNamespaceClockCommand.CommandText = """
+                                                       SELECT 1
+                                                       FROM (
+                                                           SELECT DISTINCT namespace
+                                                           FROM kv
+                                                           EXCEPT
+                                                           SELECT namespace
+                                                           FROM kv_namespace_revision
+                                                       )
+                                                       LIMIT 1;
+                                                       """;
+            var result = await missingNamespaceClockCommand.ExecuteScalarAsync(cancellationToken)
+                                                           .ConfigureAwait(false);
+            return result is not null;
         }
     }
 

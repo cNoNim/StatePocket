@@ -384,6 +384,8 @@ internal sealed partial class SqliteKvStore
     )
     {
         command.Parameters.Clear();
+        // The SQL shape varies only by the number of parameter placeholders in the IN list.
+        // Individual key values are still passed via parameters below.
 #pragma warning disable CA2100
         command.CommandText = CreateBatchGetCommandText(keys.Length);
 #pragma warning restore CA2100

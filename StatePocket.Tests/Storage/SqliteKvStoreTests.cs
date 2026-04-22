@@ -464,6 +464,45 @@ public sealed class SqliteKvStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task ShouldSeedNamespaceRevisionClockAsync_ReturnsTrueWhenKvContainsUnseededNamespace()
+    {
+        var databasePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
+        try
+        {
+            ResolvedOptions resolvedOptions = new(databasePath, ToolNames.All);
+            SqliteDatabaseInitializer initializer = new(resolvedOptions);
+            await initializer.InitializeAsync(CancellationToken.None);
+            await using var connection = new SqliteConnection(
+                new SqliteConnectionStringBuilder
+                {
+                    DataSource = databasePath,
+                    Mode = SqliteOpenMode.ReadWriteCreate
+                }.ToString()
+            );
+            await connection.OpenAsync(CancellationToken.None);
+            var insertCommand = connection.CreateCommand();
+            await using (insertCommand.ConfigureAwait(false))
+            {
+                insertCommand.CommandText = """
+                                            INSERT INTO kv(namespace, key, value, updated_at, revision)
+                                            VALUES ('missing-clock', 'alpha', '"value"', '2026-04-14T10:00:00.0000000Z', 7);
+                                            """;
+                await insertCommand.ExecuteNonQueryAsync(CancellationToken.None);
+            }
+            var shouldSeed =
+                await SqliteDatabaseInitializer.ShouldSeedNamespaceRevisionClockAsync(
+                    connection,
+                    CancellationToken.None
+                );
+            Assert.True(shouldSeed);
+        }
+        finally
+        {
+            File.Delete(databasePath);
+        }
+    }
+
+    [Fact]
     public async Task InitializeAsync_ToleratesConcurrentRevisionMigration()
     {
         var legacyDatabasePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
